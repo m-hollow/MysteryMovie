@@ -1,3 +1,10 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 
-# Create your views here.
+from django.views.generic import (TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView)
+from .models import (Movie, Trophy, UserProfile, UserMovieDetail, TrophyProfileDetail)
+
+class IndexPageView(TemplateView):
+    template_name = 'movies/index.html'
+
+
+

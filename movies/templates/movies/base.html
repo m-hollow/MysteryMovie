@@ -1,0 +1,30 @@
+{% load bootstrap4 %}
+{% load static %}
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  {% block title %} {% endblock title %}
+
+  {% bootstrap_css %}
+  {% bootstrap_javascript jquery='full' %}
+
+  <!-- jquery-ui css -->
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <!-- put your own css file link here -->
+
+</head>
+
+<body>
+
+{% block page_header %}{% endblock page_header %}
+
+{% block content %}{% endblock content %}
+
+
+</body>
+</html>
+
+

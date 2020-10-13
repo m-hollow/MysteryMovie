@@ -11,7 +11,14 @@ class Movie(models.Model):
     watched = models.BooleanField(default=True)
     date_watched = models.DateTimeField(null=True)
 
-    users = models.ManyToManyField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='related_movies')
+    # we must define 'through_fields' below, because UMD has *two* FKs relating to User; to clear the ambiguity,
+    # we specify the two FKs used specifically for the M2M relationship to THIS field.
+    # (see 'user' and 'user_guess' fields in UMD model)
+    # NOTE! Order of through fields in the tuple is CRITICAL: the first one MUST be the one that refers to
+    # the model that defines the M2M connection, e.g. in this case, movie MUST be the first entry.
+    # in other words, tuple format is (model_defined_on, targeted_model) 
+    users = models.ManyToManyField(settings.AUTH_USER_MODEL, through='UserMovieDetail', 
+        through_fields=('movie', 'user'), related_name='related_movies')
 
     class Meta:
         ordering = ['date_watched']
@@ -20,25 +27,27 @@ class Movie(models.Model):
         return self.name
 
 
+
 class Trophy(models.Model):
-    name = CharField(max_length=200)
-    condition = CharField(max_length=1000)
-    point_value = PositiveSmallIntergerField()
+    name = models.CharField(max_length=200)
+    condition = models.CharField(max_length=1000)
+    point_value = models.PositiveSmallIntegerField()
 
     def __str__(self):
         return self.name + " - " + self.condition
+
 
 
 class UserProfile(models.Model):
     # you MUST review / learn what it means to set primary_key = True on this, and why you would want to...
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True)
 
-    correct_guess_points = models.PositiveSmallIntergerField(default=0, null=True)
-    known_movie_points = models.PositiveSmallIntergerField(default=0, null=True)
-    unseen_movie_points = models.PositiveSmallIntergerField(default=0, null=True)
-    trophy_points = models.PositiveSmallIntergerField(default=0, null=True)
+    correct_guess_points = models.PositiveSmallIntegerField(default=0, null=True)
+    known_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
+    unseen_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
+    trophy_points = models.PositiveSmallIntegerField(default=0, null=True)
 
-    trophies = models.ManyToManyField(Trophy, through=TrophyProfileDetails, related_name='related_profiles')
+    trophies = models.ManyToManyField(Trophy, through='TrophyProfileDetail', related_name='related_profiles')
 
     @property
     def total_points(self):
@@ -49,13 +58,13 @@ class UserProfile(models.Model):
      
     
 
-class UserMovieDetails(models.Model):
+class UserMovieDetail(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
 
     is_user_movie = models.BooleanField(default=False)
     seen_previously = models.BooleanField(default=False)
-    heard_of = models.BooleanField(defualt=False)
+    heard_of = models.BooleanField(default=False)
 
     # user guesses who chose the movie
     user_guess = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='related_via_guess')
@@ -68,12 +77,12 @@ class UserMovieDetails(models.Model):
         (5, 'Wow, it was amazing!...(Five STars)'),
     ]
 
-    star_rating = models.PositiveSmallIntergerField(choices=rating_choices, default=3)
+    star_rating = models.PositiveSmallIntegerField(choices=rating_choices, default=3)
 
     comments = models.TextField(default='', max_length=1000)
 
     # cannot have two rows that list same user-movie pair
-    class Meta:
+    class Meta: 
         constraints = [
             models.UniqueConstraint(fields=['user', 'movie'], name='unique_user_movie_pairs')
         ]
@@ -84,9 +93,11 @@ class UserMovieDetails(models.Model):
 
 
 
-class TrophyProfileDetails(models.Model):
+class TrophyProfileDetail(models.Model):
     profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     trophy = models.ForeignKey(Trophy, on_delete=models.CASCADE)
+
+    date_awarded = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return '{} tropy awarded to {}'.format(self.trophy.name, self.profile.user)   # make sure accessing user returns a string in this context, it might return whole object!

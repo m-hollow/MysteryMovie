@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/3.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.1/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
     # My apps
     'movies.apps.MoviesConfig',
+    'users.apps.UsersConfig',
 
     # Third Party apps
     'bootstrap4',
@@ -131,3 +132,19 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'),]  # static files in local development
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')     # static files in production
+STATICFILES_FINDERS = [
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+]
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# My settings
+LOGIN_URL = 'login'   # used by django to redirect to login when @login_required gets unauthorized access
+
+LOGOUT_REDIRECT_URL = 'movies:index'
+
+
