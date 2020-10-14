@@ -1,0 +1,18 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+{% load static %}
+
+{% block page_header %}
+  <h2>{{ movie.name }}</h2>
+{% endblock page_header %}
+
+{% block content %}
+
+<br>
+
+<p><b>Date Watched:</b>&nbsp;&nbsp;&nbsp;&nbsp;{{ movie.date_watched|date:'M d, Y' }}</p>
+
+
+
+
+{% endblock content %}

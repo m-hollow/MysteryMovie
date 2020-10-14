@@ -5,3 +5,20 @@
 <title>Mystery Movie Group</title>
 {% endblock title %}
 
+{% block page_header %}
+  <h2>{{ date_today|date:'M d, Y' }}</h2>
+{% endblock page_header %}
+
+
+{% block content %}
+<br>
+
+{% for movie in movies %}
+  <b>{{ movie.date_watched|date:'M d, Y' }}</b>&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{ movie.get_absolute_url }}">{{ movie.name }}</a><br>
+{% empty %}
+  <p class="text-center">There are currently no movies in the database.</p>
+{% endfor %}
+
+
+
+{% endblock content %}

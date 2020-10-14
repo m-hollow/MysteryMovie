@@ -1,15 +1,21 @@
 from django.db import models
 from django.conf import settings
-from django.utils.text import slugify     # are you going to use this?
+from django.urls import reverse
+from django.utils.text import slugify
+from datetime import date
 
 
 class Movie(models.Model):
-    name = models.CharField(max_length=150)
-    year = models.PositiveIntegerField(null=True)
+    name = models.CharField(max_length=150, verbose_name='Movie Title')
+    year = models.PositiveIntegerField(null=True, verbose_name='Year Released')
 
-    chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chosen_movie')
-    watched = models.BooleanField(default=True)
-    date_watched = models.DateTimeField(null=True)
+    chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chosen_movie', null=True, blank=True, verbose_name="Chosen By User")
+    
+    bool_choices = ((True, 'Yes'), (False, 'No'))
+
+    watched = models.BooleanField(choices=bool_choices, default=False, verbose_name="Watched Yet?")
+
+    date_watched = models.DateField(default=date.today, null=True, verbose_name = "Date Watched")
 
     # we must define 'through_fields' below, because UMD has *two* FKs relating to User; to clear the ambiguity,
     # we specify the two FKs used specifically for the M2M relationship to THIS field.
@@ -20,12 +26,30 @@ class Movie(models.Model):
     users = models.ManyToManyField(settings.AUTH_USER_MODEL, through='UserMovieDetail', 
         through_fields=('movie', 'user'), related_name='related_movies')
 
+    slug = models.SlugField(
+        default = '',
+        editable = True,
+        max_length = 150,
+        )
+
+
     class Meta:
         ordering = ['date_watched']
 
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        kwargs = {
+            'pk': str(self.id),
+            'slug': self.slug
+        }
+        return reverse('movies:movie', kwargs=kwargs)
+
+    def save(self, *args, **kwargs):
+        value_for_slug = self.name
+        self.slug = slugify(value_for_slug, allow_unicode=True)
+        super().save(*args, **kwargs)
 
 
 class Trophy(models.Model):

@@ -14,17 +14,52 @@
   <!-- jquery-ui css -->
   <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
   <!-- put your own css file link here -->
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
 </head>
 
+
 <body>
+  <!--<body class="text-center"> -->
+<div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
+  
+  <header class="masthead">  <!-- orig. this had 'mb-auto' in the class info, which is what caused content beneath this header to drop WAY down -->
+    <div class="inner">
+      <h3 class="masthead-brand">Mystery Movie Club</h3>
+      <nav class="nav nav-masthead justify-content-center">
+        {% with url_name=request.resolver_match.url_name %}
+          <a class="nav-link {% if url_name == 'index' %} active {% endif %}" href="{% url 'movies:index' %}">Home</a>
+          <a class="nav-link {% if url_name == 'member' %} active {% endif %}" href="#">Members</a>
+          <a class="nav-link {% if url_name == 'trophies' %}  active {% endif %}" href="{% url 'movies:trophies' %}">Trophies</a>
+          <a class="nav-link {% if url_name == 'add_movie' %} active {% endif %}" href="{% url 'movies:add_movie' %}">Add Movie</a>
+        {% endwith %}
+      </nav>
+    </div>
+  </header>
 
-{% block page_header %}{% endblock page_header %}
+  <main role="main" class="">
+    <div class="border-bottom">
+      <br>
+      {% block page_header %}{% endblock page_header %}
+    </div>
 
-{% block content %}{% endblock content %}
+    <div class="">
+    {% block content %}{% endblock content %}
+    </div>
+  </main>
 
+
+
+  <footer class="mastfoot mt-auto">
+    <div class="inner text-center">
+      <p>Mystery Movie Group | Built by <b>M.Hollow</b> 2020</p>
+    </div>
+  </footer>
+
+</div>
 
 </body>
 </html>
-
-
