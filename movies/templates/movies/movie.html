@@ -2,6 +2,10 @@
 {% load bootstrap4 %}
 {% load static %}
 
+{% block title %}
+<title>{{ movie.name }}</title>
+{% endblock title %}
+
 {% block page_header %}
   <h2>{{ movie.name }}</h2>
 {% endblock page_header %}
@@ -10,9 +14,42 @@
 
 <br>
 
-<p><b>Date Watched:</b>&nbsp;&nbsp;&nbsp;&nbsp;{{ movie.date_watched|date:'M d, Y' }}</p>
+<p>Watched on <b> {{ movie.date_watched|date:'M d, Y'}}</b></p>
 
+{% if not user_movie_details %}
 
+<p>Please update your details for <b>{{ movie.name }}</b>:</p>
+
+<form method="post" action="{% url 'movies:add_details' movie.pk %}" class="form">
+  
+  {% csrf_token %}
+  {% bootstrap_form form %}
+
+  <br>
+  <button class="btn btn-secondary" type="submit">Submit Details</button>
+
+</form>
+
+{% else %}
+  <ul>
+    {% if user_movie_details.is_user_movie %}
+      <li>You chose this movie, yikes!</li>
+    {% else %}
+      <li>You didn't choose this movie, phew.</li>
+    {% endif %}
+
+      <li>Seen Previously: {{ user_movie_details.seen_previously }}</li>
+      <li>Heard of Before: {{ user_movie_details.heard_of }}</li>
+      <li>Deep Hurting Level: {{ user_movie_details.star_rating }}</li>
+    
+    {% if not user_movie_details.is_user_movie %}
+      <li>You guessed that {{ user_movie_details.user_guess.username }}</li>
+    {% endif %}
+    {% if user_movie_details.comments %}
+      <li>Your Comments: {{ user_movie_details.comments }}</li>
+    {% endif %}
+
+{% endif %}
 
 
 {% endblock content %}

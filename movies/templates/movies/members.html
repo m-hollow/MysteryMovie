@@ -1,0 +1,31 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+  <title>Members</title>
+{% endblock title %}
+
+
+{% block page_header %}
+  <h2>Current Members</h2>
+{% endblock page_header %}
+
+
+{% block content %}
+
+<br>
+
+{% if not user.is_authenticated %}
+<p>Looks like you need to join up! Please <a href="{% url 'register' %}"><b>register</b></a> here.</p>
+{% else %}
+
+  {% for member in members %}
+    <p>{{ member.username }}  -  {{ profile.total_points }}</p>
+
+  {% empty %}
+    <p>There are currently no members in the database.</p>
+  {% endfor %}
+
+{% endif %}
+
+{% endblock content %}

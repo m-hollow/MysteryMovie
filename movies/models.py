@@ -9,7 +9,8 @@ class Movie(models.Model):
     name = models.CharField(max_length=150, verbose_name='Movie Title')
     year = models.PositiveIntegerField(null=True, verbose_name='Year Released')
 
-    chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chosen_movie', null=True, blank=True, verbose_name="Chosen By User")
+    chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 
+        related_name='chosen_movie', null=True, blank=True, verbose_name="Chosen By User")
     
     bool_choices = ((True, 'Yes'), (False, 'No'))
 
@@ -75,35 +76,39 @@ class UserProfile(models.Model):
 
     @property
     def total_points(self):
-        return (correct_guess_points + known_movie_points + unseen_movie_points + trophy_points)
+        return (self.correct_guess_points + self.known_movie_points + self.unseen_movie_points + self.trophy_points)
 
     def update_points(self):
         pass
      
-    
+    # don't forget to add the 'signal' code that creates a profile when a user is created, there is no profile for
+    # admin right now!!
 
 class UserMovieDetail(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
 
-    is_user_movie = models.BooleanField(default=False)
-    seen_previously = models.BooleanField(default=False)
-    heard_of = models.BooleanField(default=False)
+    BOOL_CHOICES = ((True, 'Yes'), (False, 'No'))
+
+    is_user_movie = models.BooleanField(choices=BOOL_CHOICES, default=False, verbose_name="Is this your movie?")
+    seen_previously = models.BooleanField(choices=BOOL_CHOICES, default=False, verbose_name="Had you seen this movie previously?")
+    heard_of = models.BooleanField(choices=BOOL_CHOICES, default=False, verbose_name="Had you heard of this movie before?")
 
     # user guesses who chose the movie
-    user_guess = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='related_via_guess')
+    user_guess = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name='related_via_guess',
+        verbose_name='Who do you think chose this?  (Leave blank if this is your movie!)')
 
     rating_choices = [
-        (1, 'The Absolute Worst...(One Star)'),
-        (2, 'Very Bad...(Two Stars)'),
-        (3, 'It was alright...(Three Stars)'),
-        (4, 'It was quite good...(Four Stars)'),
-        (5, 'Wow, it was amazing!...(Five STars)'),
+        (1, 'There is no coming back from this, it has destroyed me...(One Star)'),
+        (2, 'New dimensions of suffering were learned...(Two Stars)'),
+        (3, 'Damage sustained, but I will recover...(Three Stars)'),
+        (4, 'Rather light on hurting, actually...(Four Stars)'),
+        (5, "Wow, it didn't hurt at all!!...(Five Stars)"),
     ]
 
-    star_rating = models.PositiveSmallIntegerField(choices=rating_choices, default=3)
+    star_rating = models.PositiveSmallIntegerField(choices=rating_choices, default=3, verbose_name='Deep Hurting Level')
 
-    comments = models.TextField(default='', max_length=1000)
+    comments = models.TextField(default='', blank=True, max_length=1000) # if left blank, default value of empty string is used; no Null in table.
 
     # cannot have two rows that list same user-movie pair
     class Meta: 
