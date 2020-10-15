@@ -14,10 +14,9 @@
 
 <br>
 
-<p>Watched on <b> {{ movie.date_watched|date:'M d, Y'}}</b></p>
-
 {% if not user_movie_details %}
 
+<p>Watched on <b> {{ movie.date_watched|date:'M d, Y'}}</b></p>
 <p>Please update your details for <b>{{ movie.name }}</b>:</p>
 
 <form method="post" action="{% url 'movies:add_details' movie.pk %}" class="form">
@@ -31,23 +30,38 @@
 </form>
 
 {% else %}
-  <ul>
-    {% if user_movie_details.is_user_movie %}
-      <li>You chose this movie, yikes!</li>
-    {% else %}
-      <li>You didn't choose this movie, phew.</li>
-    {% endif %}
 
-      <li>Seen Previously: {{ user_movie_details.seen_previously }}</li>
-      <li>Heard of Before: {{ user_movie_details.heard_of }}</li>
-      <li>Deep Hurting Level: {{ user_movie_details.star_rating }}</li>
+<p>Watched on <b> {{ movie.date_watched|date:'M d, Y'}}</b><br>
+  {% if user_movie_details.is_user_movie %}
+    This movie was <i>your</i> choice, oh my.</p>
+  {% else %}
+    This movie was chosen by another user, phew. </p>
+  {% endif %}
+
+  <ul class="pl-0" style="list-style-type:none">
+      <li>Seen Previously: <span class="float-right">{{ user_movie_details.get_seen_previously_display }}</span></li>
+      <li>Heard of Before: <span class="float-right">{{ user_movie_details.get_heard_of_display }}</span></li>
+      <li>Deep Hurting Level: <span class="float-right">{{ user_movie_details.get_star_rating_display }}</span></li>
     
     {% if not user_movie_details.is_user_movie %}
-      <li>You guessed that {{ user_movie_details.user_guess.username }}</li>
+      <li>Your Guess: <span class="float-right">{{ user_movie_details.user_guess.username }}</span></li>
     {% endif %}
-    {% if user_movie_details.comments %}
-      <li>Your Comments: {{ user_movie_details.comments }}</li>
-    {% endif %}
+
+<!--     {% if user_movie_details.comments %}
+      <li>Your Comments: <span class="float-right">{{ user_movie_details.comments }}</span></li>
+    {% endif %} -->
+  
+  </ul>
+
+  <p><a href="{% url 'movies:update_details' user_movie_details.pk %}"><b>Edit Details</b></a></p>
+
+<br>
+<div class="border-bottom">
+  <h2>Results...</h2>
+</div>
+<br>
+<p>Your results for this movie will be posted after the Round is complete.</p>
+
 
 {% endif %}
 

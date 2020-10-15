@@ -16,15 +16,23 @@
 <br>
 
 {% if not user.is_authenticated %}
-<p>Looks like you need to join up! Please <a href="{% url 'register' %}"><b>register</b></a> here.</p>
+<p>Looks like you're new here...<br>
+If you have an account, click login above.</p>
+
+<p>Otherwise, please <a href="{% url 'register' %}"><b>register</b></a> here.</p>
+
 {% else %}
 
-  {% for member in members %}
-    <p>{{ member.username }}  -  {{ profile.total_points }}</p>
+<p>There are currently <b>{{ members|length }}</b> members.</p>
 
-  {% empty %}
-    <p>There are currently no members in the database.</p>
-  {% endfor %}
+<ul class="pl-0" style="list-style-type:none">
+{% for pair in user_profile_pairs %}
+  <li>{{ pair.0.username }}<span class="float-right">{{ pair.1.total_points }} points</span></li>
+{% empty %}
+  <p>There are currently no members in the database.</p>
+{% endfor %}
+</ul>
+
 
 {% endif %}
 

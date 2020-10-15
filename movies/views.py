@@ -52,9 +52,17 @@ class MovieDetail(LoginRequiredMixin, DetailView):
 
         form = UserMovieDetailForm()
 
+        results_ready = False       # idea: create a 'Rounds' table in the db. 
+                                    # you need a 'state' variable called results_ready that 
+                                    # applies to the -entire round-. 
+                                    # then, on an admin level, you have a button to flip that
+                                    # value to True, and then results will appear across the
+                                    # entire site.
+
         context['user_profile'] = user_profile
         context['user_movie_details'] = user_movie_details
         context['form'] = form
+        context['results_ready'] = results_ready
 
         return context
 
@@ -83,19 +91,65 @@ def process_details(request, movie_pk):
             # numerous times in NoirDB views for the UMD) but not to redirect() ?
 
 
-class MembersView(ListView):
-    model = get_user_model()
-    template_name = 'movies/members.html'
+class UpdateDetailsView(LoginRequiredMixin, UpdateView):
+    model = UserMovieDetail
+    template_name = 'movies/update_details.html'
+    form_class = UserMovieDetailForm
+
+    login_url = 'login' # used by LoginRequiredMixin
+
+    # note: I only included this method so there would be a way to 'back out' of the editing view; I added
+    # a 'go back' link that returns to the movie page, but that meant I needed this method so I'd have all
+    # the values necessary for building the appropriate url. I note this, just so you're aware that this 
+    # get_context_data has literaly no part in the form-updating functionality of this UpdateView CBV.
+
+    # actually, it turns out NONE of this is necessary after all, becuase in the template I can simply access
+    # the id and slug of the movie object through the UserMovieDetail object that the template already has
+    # access to!   object.movie.pk  object.movie.slug      note that I'm only using object here because I didn't
+    # bother to rename the context object in the attributes of this CVB.
 
     # def get_context_data(self, **kwargs):
     #     context = super().get_context_data(**kwargs)
 
-    #     user_profiles =  
+    #     movie_id = self.object.movie.pk
+    #     movie_slug = self.object.movie.slug
 
-    #     # package user and profiles into tuples, just like you did for actors and roles
-    #     # loop through the tuples in the template
+    #     context['movie_id'] = movie_id
+    #     context['movie_slug'] = movie_slug
 
     #     return context
+
+    # why reverse instead of redirect()? because the CVB is handling the redirect itself. this method simply 
+    # supplies the URL that the CBV will redirect to. when you write a non-CBV function based view, you use redirect;
+    # the CBV is probably taking the value returned by get_success_url and calling HTTPResponseRedirect on it (I say
+    # that rather than redirect() becuase redirect() includes a reverse, which would be redundant here since get_success_url
+    # is handling the reverse part....
+
+    def get_success_url(self):
+        return reverse('movies:movie', kwargs={'pk': self.object.movie.pk, 'slug': self.object.movie.slug })
+
+    # UpdateView takes care of passing the to-be-updated object instance to the ModelForm constructor
+    # you'd only need to do that if you were writing this as a non-CBV function.
+
+
+class MembersView(ListView):
+    model = get_user_model()
+    template_name = 'movies/members.html'
+    context_object_name = 'members'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        user_profile_pairs = []
+
+        # get the profile for each user, store user and their profile as a tuple in master list
+        for member in context['members']:
+            profile = UserProfile.objects.get(user=member)
+            user_profile_pairs.append((member, profile))
+
+        context['user_profile_pairs'] = user_profile_pairs
+
+        return context
 
 
 # an old question: how to access the (already grabbed) queryset while inside get_context_data method? I know

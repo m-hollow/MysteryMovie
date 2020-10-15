@@ -1,0 +1,36 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+{% load static %}
+
+{% block title %}
+<title>Update Details</title>
+{% endblock title %}
+
+{% block page_header %}
+  <h2>{{ object.movie.name }}</h2>
+{% endblock page_header %}
+
+{% block content %}
+
+<br>
+
+<p>Watched on <b> {{ object.movie.date_watched|date:'M d, Y'}}</b></p>
+
+<form method="post" action="" class="form">
+  
+  {% csrf_token %}
+  {% bootstrap_form form %}
+
+  <br>
+  <button class="btn btn-secondary" type="submit">Submit Edited Details</button>
+
+</form>
+<br>
+<p class="float-right">Don't need to make changes after all?</span><br>
+<a href="{% url 'movies:movie' object.movie.id object.movie.slug %}"><b><span class="float-right">Go Back</b></span></a></p>
+
+
+
+
+
+{% endblock content %}

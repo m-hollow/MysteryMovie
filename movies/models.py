@@ -88,7 +88,7 @@ class UserMovieDetail(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
 
-    BOOL_CHOICES = ((True, 'Yes'), (False, 'No'))
+    BOOL_CHOICES = ((True, 'Yes'), (False, 'Nope'))
 
     is_user_movie = models.BooleanField(choices=BOOL_CHOICES, default=False, verbose_name="Is this your movie?")
     seen_previously = models.BooleanField(choices=BOOL_CHOICES, default=False, verbose_name="Had you seen this movie previously?")
@@ -99,11 +99,11 @@ class UserMovieDetail(models.Model):
         verbose_name='Who do you think chose this?  (Leave blank if this is your movie!)')
 
     rating_choices = [
-        (1, 'There is no coming back from this, it has destroyed me...(One Star)'),
-        (2, 'New dimensions of suffering were learned...(Two Stars)'),
-        (3, 'Damage sustained, but I will recover...(Three Stars)'),
-        (4, 'Rather light on hurting, actually...(Four Stars)'),
-        (5, "Wow, it didn't hurt at all!!...(Five Stars)"),
+        (1, 'It destroyed me... One Star'),
+        (2, 'New dimensions of suffering... Two Stars'),
+        (3, "Damage sustained, but I'll recover... Three Stars"),
+        (4, 'Surprisingly light on hurting... Four Stars'),
+        (5, "It didn't hurt at all!... Five Stars"),
     ]
 
     star_rating = models.PositiveSmallIntegerField(choices=rating_choices, default=3, verbose_name='Deep Hurting Level')

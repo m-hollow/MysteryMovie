@@ -10,7 +10,7 @@
 <p>Need an account? <a href="{% url 'register' %}">Register</a> here.</p>
 
 {% block page_header %}
-  <h2>Round 1 <span style="font-size:16px">Oct 4 - Nov 6, 2020</span></h2>
+  <h2>Round 1 <span style="font-size:17px">Oct 4 - Nov 6, 2020</span></h2>
 {% endblock page_header %}
 
 <p>Today's Date: {{ date_today|date:'M d, Y' }}
@@ -19,13 +19,27 @@
 <br>
 
 
-{% for movie in movies %}
+<!-- {% for movie in movies %}
   <b>{{ movie.date_watched|date:'M d, Y' }}</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{ movie.get_absolute_url }}">{{ movie.name }}</a>
   <br>
 {% empty %}
-  <p class="text-center">There are currently no movies in the database.</p>
-{% endfor %}
+  <p>There are currently no movies in the database.</p>
+{% endfor %} -->
 
+
+<ul class="pl-0" style="list-style-type:none">
+{% for movie in movies %}
+  <li><a href="{{ movie.get_absolute_url }}">{{ movie.name }}</a><span class="float-right">{{ movie.date_watched|date:'M d, Y' }}</span></li>
+{% empty %}
+  <p>There are currently no movies in the database.</p>
+{% endfor %}
+</ul>
+
+<br>
+<br>
+
+<h5>Instructions:</h5>
+<p>Click a movie title to add or edit your details for that movie.</p>
 
 
 {% endblock content %}
