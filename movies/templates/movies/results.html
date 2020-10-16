@@ -1,0 +1,56 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+  <title>Results</title>
+{% endblock title %}
+
+
+{% block page_header %}
+  <h2>Results</h2>
+{% endblock page_header %}
+
+
+{% block content %}
+
+<br>
+
+<ul class="pl-0" style="list-style-type:none">
+<li>Current Round: <span class="float-right">{{ game_round.round_number }}</span></li>
+<li>Started On: <span class="float-right">{{ game_round.date_started }}</span></li>
+<li># Movies Watched So Far: <span class="float-right">{{ movies|length }}</span></li>
+
+
+
+<br>
+<br>
+
+<div class="border-bottom">
+  <h4>Previous Rounds</h4>
+</div>
+
+<ul class="pl-0" style="list-style-type:none">
+  {% for round in game_rounds if round.round_completed %}
+    <li>Round #: <span class="float-right">{{ round.round_number }}</span></li>
+    <li>Winner: <span class="float-right">{{ round.winner.username }}</span></li>
+    <!-- if you want to print any movie info here, you'll need to add movies to context! -->
+  {% empty %}
+  <li>There are no previous rounds to display.</li>
+  {% endfor %}
+</ul>
+
+<ul class="pl-0" style="list-style-type:none">
+{% for pair in user_profile_pairs %}
+  <li>{{ pair.0.username }}<span class="float-right">{{ pair.1.total_points }} points</span></li>
+{% empty %}
+  <p>There are currently no members in the database.</p>
+{% endfor %}
+</ul>
+
+<br>
+<br>
+
+
+{% endif %}
+
+{% endblock content %}

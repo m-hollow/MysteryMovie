@@ -6,7 +6,7 @@ from django.views.generic import (TemplateView, ListView, DetailView, CreateView
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
-from .models import (Movie, Trophy, UserProfile, UserMovieDetail, TrophyProfileDetail)
+from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, TrophyProfileDetail)
 from .forms import AddMovieForm, UserMovieDetailForm
 
 
@@ -21,6 +21,24 @@ class IndexPageView(ListView):
         date_today = timezone.now()
 
         context['date_today'] = date_today
+
+        return context
+
+
+class ResultsView(ListView):
+    model = GameRound
+    template_name = 'movies/results.html'
+    context_object_name = 'game_rounds'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        current_round = context['game_rounds'].filter(active_round=True).last()
+
+        movies = Movie.objects.filter()
+
+
+        context['current_round'] = current_round
 
         return context
 
@@ -98,27 +116,6 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
 
     login_url = 'login' # used by LoginRequiredMixin
 
-    # note: I only included this method so there would be a way to 'back out' of the editing view; I added
-    # a 'go back' link that returns to the movie page, but that meant I needed this method so I'd have all
-    # the values necessary for building the appropriate url. I note this, just so you're aware that this 
-    # get_context_data has literaly no part in the form-updating functionality of this UpdateView CBV.
-
-    # actually, it turns out NONE of this is necessary after all, becuase in the template I can simply access
-    # the id and slug of the movie object through the UserMovieDetail object that the template already has
-    # access to!   object.movie.pk  object.movie.slug      note that I'm only using object here because I didn't
-    # bother to rename the context object in the attributes of this CVB.
-
-    # def get_context_data(self, **kwargs):
-    #     context = super().get_context_data(**kwargs)
-
-    #     movie_id = self.object.movie.pk
-    #     movie_slug = self.object.movie.slug
-
-    #     context['movie_id'] = movie_id
-    #     context['movie_slug'] = movie_slug
-
-    #     return context
-
     # why reverse instead of redirect()? because the CVB is handling the redirect itself. this method simply 
     # supplies the URL that the CBV will redirect to. when you write a non-CBV function based view, you use redirect;
     # the CBV is probably taking the value returned by get_success_url and calling HTTPResponseRedirect on it (I say
@@ -166,6 +163,27 @@ class AddMovieView(LoginRequiredMixin, CreateView):
     login_url = 'login' # only used by LoginRequiredMixin, if unauthorized access attempted
 
 
+class CreateRoundView(LoginRequiredMixin, CreateView):
+    model = GameRound
+    template_name = 'movies/create_round.html'
+    success_url = reverse_lazy('movies:results')
+    context_object_name = 'game_round'
+    fields = ['active_round', 'round_completed', 'date_started', 'participants']
+
+    login_url = 'login'
+
+# the method below  is a good example of breaking up the normal flow of a form_valid method; we want to modify
+# the object AFTER it is saved, but before the redirect. That's why the format of this is different
+# than the other 'standard' form_valid methods used. Another good example is in the NoirDB User registration
+# view. There are two possible approaches as documented on SO thread: 
+# "Django CreateView: How to perform action upon save"
+  
+    def form_valid(self, form):
+
+        self.object = form.save() # manually create the object instance so we can then modify it
+        self.object.round_number = self.object.compute_round_number()
+        return redirect(self.get_success_url())
+
 
 class TrophiesView(ListView):
     model = Trophy
@@ -174,7 +192,14 @@ class TrophiesView(ListView):
 
 
     
-
+# TO DO
+# you need an admin page that only you and john will use, on which you can:
+# add movies
+# add rounds
+# edit rounds
+# add trophies
+# edit trophies
+# I don't want a link up top, though
 
 
 
