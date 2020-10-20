@@ -47,14 +47,22 @@
         <a class="btn-mmg float-right" href="{% url 'login' %}?next={{ request.path|urlencode }}" role="button">login</a>
       {% else %}
         <a class="btn-mmg float-right" href="{% url 'logout' %}?next={{ request.path|urlencode }}" role="button">logout&nbsp;<small>{{ user.username }}</small></a>
+
+        {% if user.userprofile.is_mmg_admin %}
+          <a class="btn-mmg float-left" href="{% url 'movies:settings' %}" role="button"><small>Admin Panel</small></a>
+        {% endif %}
+      
       {% endif %}
     </div>
 
-    <br>  <!-- login button will replace this break, eventually -->
+    <br>
+    <br>
     
     <div class="border-bottom">
       {% block page_header %}{% endblock page_header %}
     </div>
+
+    <br>
 
     <div class="">
     {% block content %}{% endblock content %}

@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model # why this instead of settings.AUTH_USER_MODEL ?
+from django.contrib.auth.models import User
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import login_required
 from django.views.generic import (TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView)
@@ -9,6 +10,9 @@ from django.utils import timezone
 from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, TrophyProfileDetail)
 from .forms import AddMovieForm, UserMovieDetailForm
 
+# Note: using get_user_model and settings.AUTH_USER_MODEL are unneccessary in this project, as you are
+# using the default django admin User model. You can rewrite the models and views to simply access User
+# and import it as done above.
 
 class IndexPageView(ListView):
     queryset = Movie.objects.order_by('-date_watched')
@@ -20,7 +24,51 @@ class IndexPageView(ListView):
 
         date_today = timezone.now()
 
+        # if there isn't a current round, the current_round name will have a value of None, which can be checked
+        # against conditionally in the template
+        # (make sure that calling .last() on an empty Queryset actually does return None...)
+        current_round = GameRound.objects.filter(active_round__exact=True).last() # use last() in case there is more than one (though there shouldn't be)
+
+        current_round_pairs = []
+
+        if current_round:
+            current_round_participants = current_round.participants.all()   # note the.all() on the connection !
+        
+            for p in current_round_participants:
+                profile = UserProfile.objects.get(user=p)
+                current_round_pairs.append((p, profile))
+
+        # this will leave current_round_pairs empty, which is fine
+        else:
+            pass
+
+
+        context['current_round'] = current_round
+        context['current_round_pairs'] = current_round_pairs
         context['date_today'] = date_today
+
+        return context
+
+class SettingsView(LoginRequiredMixin, TemplateView):
+    template_name = 'movies/settings.html'
+
+    login_url = 'login'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        movies = Movie.objects.order_by('-date_watched')
+        members = User.objects.all()
+        profiles = UserProfile.objects.all()
+        game_rounds = GameRound.objects.order_by('-round_number')  # display high to low (recent at top)
+
+        # you will eventually need to sort movies by their game_round attribute,
+        # so you can display movies by round.
+
+        context['game_rounds'] = game_rounds
+        context['movies'] = movies
+        context['members'] = members
+        context['member_profiles'] = profiles
 
         return context
 
@@ -30,14 +78,19 @@ class ResultsView(ListView):
     template_name = 'movies/results.html'
     context_object_name = 'game_rounds'
 
+
+    # shouldn't the results page view have access to all User objects and all UserProfile objects ??
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
+        # the context has already been built by the 'get_queryset' method (in parent), and the
+        # queryset is stored as 'game_rounds' per context_object_name attribute above.
         current_round = context['game_rounds'].filter(active_round=True).last()
 
         movies = Movie.objects.filter()
 
-
+        context['movies'] = movies
         context['current_round'] = current_round
 
         return context
@@ -77,6 +130,17 @@ class MovieDetail(LoginRequiredMixin, DetailView):
                                     # value to True, and then results will appear across the
                                     # entire site.
 
+
+        # add the current game round to the context, so you can check if it's been completed or not,
+        # and display the results if so. Note: this will replace 'results ready' below.
+        # you can retreive the round through the Movie object, that's a direct connection
+
+        game_round = movie.game_round   # this retrieves the object, right? it's an FK field, many-to-one, so there
+                                        # is only one possible GameRound record to retrieve here; still make sure this
+                                        # assignment is actually assigning the game round object!
+
+
+        context['game_round'] = game_round
         context['user_profile'] = user_profile
         context['user_movie_details'] = user_movie_details
         context['form'] = form
@@ -130,21 +194,48 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
 
 
 class MembersView(ListView):
-    model = get_user_model()
+    #model = get_user_model()
+    # I want to order by total points, but that is a property so I can't; which means we need
+    # a static, non-property value that holds the total points, and is computed by a method in
+    # the UserProfile model, and that method gets called.... when? here? somewhere else?
+    queryset = User.objects.order_by('userprofile__correct_guess_points')
     template_name = 'movies/members.html'
     context_object_name = 'members'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        game_rounds = GameRound.objects.order_by('-date_started')
+        current_round = game_rounds.filter(active_round=True).last()  # current round will be None if there are no rounds
+
         user_profile_pairs = []
+        current_round_pairs = []
 
         # get the profile for each user, store user and their profile as a tuple in master list
         for member in context['members']:
             profile = UserProfile.objects.get(user=member)
             user_profile_pairs.append((member, profile))
 
+        # retrieve Users through the paticipants attribute of GameRound object (M2M)
+        if current_round:
+            current_round_participants = current_round.participants.all()   # note the.all() on the connection !
+
+        # TEST THESE OUT, THEY AREN'T CURRRENTLY USED, BUT I WANT TO CONFIRM HOW TO FILTER DOWN THE
+        # DESIRED OBJECTS IN THE QUERYSET USING THE FOLLOWING APPROCHES...
+        # alternately, retrieve Users by filtering the queryset of all members, which is already in our context
+        #crp2 = context['members'].filter(gameround__round_number=current_round.round_number)
+
+        # could you just shorten it by providing the game round object itself?
+        #crp3 = context['members'].filter(gameround=current_round)
+
+            for p in current_round_participants:
+                profile = UserProfile.objects.get(user=p)
+                current_round_pairs.append((p, profile))
+
+
+        context['current_round'] = current_round
         context['user_profile_pairs'] = user_profile_pairs
+        context['current_round_pairs'] = current_round_pairs
 
         return context
 
@@ -162,13 +253,27 @@ class AddMovieView(LoginRequiredMixin, CreateView):
 
     login_url = 'login' # only used by LoginRequiredMixin, if unauthorized access attempted
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # this is checked against by the add_movie page, to tell user they must add an active Round
+        # before they can add a movie.
+        if GameRound.objects.filter(active_round=True).exists():
+            active_round_exists = True
+        else:
+            active_round_exists = False
+
+        context['active_round_exists'] = active_round_exists
+
+        return context
+
 
 class CreateRoundView(LoginRequiredMixin, CreateView):
     model = GameRound
     template_name = 'movies/create_round.html'
-    success_url = reverse_lazy('movies:results')
+    success_url = reverse_lazy('movies:settings')
     context_object_name = 'game_round'
-    fields = ['active_round', 'round_completed', 'date_started', 'participants']
+    fields = ['round_number', 'active_round', 'round_completed', 'date_started', 'participants']
 
     login_url = 'login'
 
@@ -178,11 +283,22 @@ class CreateRoundView(LoginRequiredMixin, CreateView):
 # view. There are two possible approaches as documented on SO thread: 
 # "Django CreateView: How to perform action upon save"
   
-    def form_valid(self, form):
+    # no longer doing this, for now; round number is simply entered on creation form.
+    # def form_valid(self, form):
 
-        self.object = form.save() # manually create the object instance so we can then modify it
-        self.object.round_number = self.object.compute_round_number()
-        return redirect(self.get_success_url())
+    #     self.object = form.save() # manually create the object instance so we can then modify it
+    #     self.object.round_number = self.object.compute_round_number()
+    #     return redirect(self.get_success_url())
+
+
+class EditRoundView(LoginRequiredMixin, UpdateView):
+    model = GameRound
+    template_name = 'movies/edit_round.html'
+    success_url = reverse_lazy('movies:settings')
+    context_object_name = 'game_round'
+    fields = ['round_number', 'active_round', 'round_completed', 'date_started', 'participants', 'date_finished']
+
+    login_url = 'login'
 
 
 class TrophiesView(ListView):

@@ -11,15 +11,24 @@
 
 
 {% block content %}
-  <br>
-  <form method="post" action="{% url 'movies:add_movie' %}" class="form">
-  {% csrf_token %}
-  {% bootstrap_form form %}
-  {% buttons %}
-    <br>
-    <button class="btn btn-secondary" type="submit">Add Movie</button>
-  {% endbuttons %}
-  </form>
+
+  {% if active_round_exists %}
+
+    <form method="post" action="{% url 'movies:add_movie' %}" class="form">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    {% buttons %}
+      <br>
+      <button class="btn btn-secondary" type="submit">Add Movie</button>
+    {% endbuttons %}
+    </form>
+
+{% else %}
+
+  <p>You need to create an active <b>Round</b> before you can add Movies.</p>
+
+{% endif %}
+
 
 <!--   <div class='float-right'>
     <a class="btn btn-sm btn-secondary" href="{% url 'movies:index' %}"><i>Nevermind!</i></a>

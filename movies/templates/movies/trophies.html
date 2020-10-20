@@ -11,8 +11,14 @@
 {% endblock page_header %}
 
 {% block content %}
-  <br>
-  <p>Trophy data will be posted after the current Round has been completed.</p>
+
+<ul class="pl-0" style="list-style-type:none">
+{% for trophy in trophies %}
+  <li>{{ tropy.name }}<span class="float-right">{{ trophy.condition }}</span></li>
+{% empty %}
+  <p>There are currently no Trophies in the database.</p>
+{% endfor %}  
+</ul>
 
 
 

@@ -10,38 +10,55 @@
 <p>Need an account? <a href="{% url 'register' %}">Register</a> here.</p>
 
 {% block page_header %}
-  <h2>Round 1 <span style="font-size:17px">Oct 4 - Nov 6, 2020</span></h2>
+  {% if current_round %}
+    <h2>Current Round &nbsp;-<b>&nbsp;{{ current_round.round_number }}</b></h2>
+  {% else %}
+    <h2>There is no active Round.</h2>
+  {% endif %}
 {% endblock page_header %}
 
-<p>Today's Date: {{ date_today|date:'M d, Y' }}
+
 
 {% block content %}
-<br>
 
+<p>Started: 
+{% if current_round %}
+{{ current_round.date_started }}
+{% else %}n/a
+{% endif %}
+&nbsp;&nbsp;&nbsp;&nbsp;Participants: {{ current_round_pairs|length }}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Movies Watched: {{ movies|length }}</p>
 
-<!-- {% for movie in movies %}
-  <b>{{ movie.date_watched|date:'M d, Y' }}</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{ movie.get_absolute_url }}">{{ movie.name }}</a>
-  <br>
-{% empty %}
-  <p>There are currently no movies in the database.</p>
-{% endfor %} -->
-
-
-<ul class="pl-0" style="list-style-type:none">
+{% if current_round %}
+  <h4 class="border-bottom pb-2 mb-4">Movies</h4>
+  <ul class="pl-0" style="list-style-type:none">
 {% for movie in movies %}
   <li><a href="{{ movie.get_absolute_url }}">{{ movie.name }}</a><span class="float-right">{{ movie.date_watched|date:'M d, Y' }}</span></li>
 {% empty %}
-  <p>There are currently no movies in the database.</p>
+  <li>There are currently no movies in the database.</li>
 {% endfor %}
 </ul>
 
 <a href="{% url 'movies:add_movie' %}"><span class="float-right"><b>+ Add Movie</b></span></a>
-
-<br>
 <br>
 
-<h5>Instructions:</h5>
-<p>Click a movie title to add or edit your details for that movie.</p>
+<i>Instructions:</i>
+<p>Click on a Movie title to update your details.</p>
+<br>
+
+<h4 class="border-bottom pb-2 mb-4">Players</h4>
+
+<ul class="pl-0" style="list-style-type:none">
+{% for pair in current_round_pairs %}
+  <li>{{ pair.0.username }}<span class="float-right">{{ pair.1.total_points }} points</span></li>
+{% empty %}
+  <li>The current round has no Participants.</li>
+{% endfor %}
+</ul>
+
+{% else %}
+<p>There is no currently active Round.</p>
+{% endif %}
+
 
 
 {% endblock content %}

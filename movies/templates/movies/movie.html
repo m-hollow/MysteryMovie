@@ -12,7 +12,6 @@
 
 {% block content %}
 
-<br>
 
 {% if not user_movie_details %}
 
@@ -53,15 +52,24 @@
   
   </ul>
 
-  <p><a href="{% url 'movies:update_details' user_movie_details.pk %}"><b>Edit Details</b></a></p>
+  <br>
 
-<br>
-<div class="border-bottom">
-  <h2>Results...</h2>
-</div>
-<br>
-<p>Your results for this movie will be posted after the Round is complete.</p>
+  <p><a href="{% url 'movies:update_details' user_movie_details.pk %}"><span class="float-right"><b>Edit Details</b></span></a></p>
 
+
+<!-- do a bool check here to see if the round that this movie belongs to is complete or not, if it is, display the results -->
+
+    {% if game_round.round_completed %}
+        <br>
+        <br>
+        <div class="border-bottom">
+          <h2>Results...</h2>
+        </div>
+        <br>
+    {% else %}
+    <br>
+    <p>Your results for this movie will be posted after the Round is complete.</p>
+    {% endif %}
 
 {% endif %}
 

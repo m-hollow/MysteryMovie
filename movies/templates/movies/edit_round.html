@@ -2,28 +2,24 @@
 {% load bootstrap4 %}
 
 {% block title %}
-<title>Create Round</title>
+<title>Edit Round</title>
 {% endblock title %}
 
 {% block page_header %}
-  <h2>Create New Round</h2>
+  <h2>Edit Round</h2>
 {% endblock page_header %}
 
 
 {% block content %}
 
+<!-- action, left empty "", will use call (with method Post) the same view that rendered this page, e.g. EditRoundView -->
   <form method="post" action="" class="form">
   {% csrf_token %}
   {% bootstrap_form form %}
   {% buttons %}
     <br>
-    <button class="btn btn-secondary" type="submit">Create Round</button>
+    <button class="btn btn-secondary" type="submit">Submit Changes</button>
   {% endbuttons %}
   </form>
-
-<!--   <div class='float-right'>
-    <a class="btn btn-sm btn-secondary" href="{% url 'movies:index' %}"><i>Nevermind!</i></a>
-  </div> -->
-
 
 {% endblock content %}
