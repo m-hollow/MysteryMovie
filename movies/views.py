@@ -7,7 +7,7 @@ from django.views.generic import (TemplateView, ListView, DetailView, CreateView
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
-from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, TrophyProfileDetail)
+from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail)
 from .forms import AddMovieForm, UserMovieDetailForm
 
 # Note: using get_user_model and settings.AUTH_USER_MODEL are unneccessary in this project, as you are
@@ -73,27 +73,91 @@ class SettingsView(LoginRequiredMixin, TemplateView):
         return context
 
 
+# I couldn't make this a DetailView, because that requires a pk argument to be capture by the URL, and 
+# this view is called from base.html, and afaik I have no ability to pass an argument such as a pk in base.html,
+# because I have no view for rendering it; the Results link in the navbar would need an <int:pk> in the url, which
+# I can certainly add to the URL, but how do I -pass- an argument to that URL from the base.html template ? it has
+# no access to results objects, and I have no view to provide it with that context...
 class ResultsView(ListView):
     model = GameRound
     template_name = 'movies/results.html'
     context_object_name = 'game_rounds'
 
 
-    # shouldn't the results page view have access to all User objects and all UserProfile objects ??
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
         # the context has already been built by the 'get_queryset' method (in parent), and the
         # queryset is stored as 'game_rounds' per context_object_name attribute above.
-        current_round = context['game_rounds'].filter(active_round=True).last()
+        
+        # this is a HUGE and kinda ungainly if block; is there a better way to organize the logic contained below?
 
-        movies = Movie.objects.filter()
+        if context['game_rounds'].filter(active_round=True).exists():
+            current_round = context['game_rounds'].filter(active_round=True).last()
 
-        context['movies'] = movies
-        context['current_round'] = current_round
+        # would the template be able to loop through current_round.
+            current_round_movies = current_round.movies_from_round.all()  # uses reverse manager defined in Movie model
+
+            current_round_participants = current_round.participants.all() # get User objects related to current GameRound
+
+            # get UserProfile, UserMovieDetail, UserRoundDetail for each participant user:
+            
+            round_results = []
+            missing_details = []   # should this be a dict instead? think it through...
+            
+            # IMPORTANT TO-DO:
+            # this would be a great place to look into use select_related and prefetch_related to cut down on db hits!
+            # I see all kinds of places in here where 'related' objects are being directly accessed after the original
+            # relation has already been loaded...you want to 'pre-load' all those additional related objects.
+
+            for participant in current_round_participants.all():
+                participant_package = {
+                    'user': participant,
+                    'profile': participant.userprofile,    # note that it's 'userprofile', the lower case of the other end of the One-to-One
+                    'user_round_details': participant.userrounddetail_set.get(game_round=current_round),
+                    'user_movie_details_list': [],
+                } 
+                
+                for movie in current_round_movies:
+                    
+                    if movie.usermoviedetail_set.filter(user=participant).exists():  # exists() only works with filter(), not get() !!!
+                        user_movie_details = movie.usermoviedetail_set.get(user=participant)
+                        participant_package['user_movie_details_list'].append(user_movie_details)
+                    else:
+                        # this is the case in which the User has not yet submitted details for the given movie
+                        # should you pass the actual objects in here, or just the relevant names?
+                        missing_details.append((participant.username, movie.name ))
+
+                round_results.append(participant_package)
+
+
+            # generally I don't like this approach of the template having different context items depending on
+            # conditional paths; I think it should always reliably have the same set of objects, and if some aren't
+            # available, they are still listed in the context, but with value None. thus I've moved it to after the
+            # conditional check, and the else block handles setting missing values accordingly.
+            # context['missing_details'] = missing_details
+            # context['current_round_movies'] = current_round_movies
+
+        else:
+            missing_details = None
+            current_round_movies = None
+            current_round = None
+            round_results = None
+
+
+        # note: for 1 round, there is 6 movies, which means you'll have 6 UserMovieDetail objects per user,
+        # but only ONE UserRoundDetail object per user.
+
+        context['missing_details'] = missing_details
+        context['current_round_movies'] = current_round_movies
+        context['current_round'] = current_round 
+        context['round_results_by_participant'] = round_results # round_results is a list of dictionaries.
+
 
         return context
+
+
+# a helper function called by the Results view to compute points from round
 
 
 
@@ -139,6 +203,12 @@ class MovieDetail(LoginRequiredMixin, DetailView):
                                         # is only one possible GameRound record to retrieve here; still make sure this
                                         # assignment is actually assigning the game round object!
 
+
+        # it's also worth noting that some of this stuff can be accessed in the template, through the base objects
+        # in the context; e.g. since this template has Movie object by default, you could access gameround in the template
+        # using movie.game_round -- so there's no real need to package it individually here, it's probably not efficient.
+        # I think the point of accessing things here in the view is if you need to do something more complicated with
+        # them, but if it's just to access it, store it in a name, and pass it in the context -- it's probably redundant.
 
         context['game_round'] = game_round
         context['user_profile'] = user_profile
@@ -198,7 +268,7 @@ class MembersView(ListView):
     # I want to order by total points, but that is a property so I can't; which means we need
     # a static, non-property value that holds the total points, and is computed by a method in
     # the UserProfile model, and that method gets called.... when? here? somewhere else?
-    queryset = User.objects.order_by('userprofile__correct_guess_points')
+    queryset = User.objects.order_by('userprofile__total_correct_guess_points')
     template_name = 'movies/members.html'
     context_object_name = 'members'
 
@@ -212,17 +282,22 @@ class MembersView(ListView):
         current_round_pairs = []
 
         # get the profile for each user, store user and their profile as a tuple in master list
-        for member in context['members']:
-            profile = UserProfile.objects.get(user=member)
-            user_profile_pairs.append((member, profile))
+        if context['members']:
+            for member in context['members']:
+                profile = UserProfile.objects.get(user=member)
+                user_profile_pairs.append((member, profile))
 
         # retrieve Users through the paticipants attribute of GameRound object (M2M)
         if current_round:
             current_round_participants = current_round.participants.all()   # note the.all() on the connection !
 
         # TEST THESE OUT, THEY AREN'T CURRRENTLY USED, BUT I WANT TO CONFIRM HOW TO FILTER DOWN THE
-        # DESIRED OBJECTS IN THE QUERYSET USING THE FOLLOWING APPROCHES...
+        # DESIRED OBJECTS IN THE QUERYSET USING THE FOLLOWING APPROACHES...
         # alternately, retrieve Users by filtering the queryset of all members, which is already in our context
+
+        # note that you have now defined UserRoundDetail, the intermediary table between User and Round, which
+        # should make the format of these queries more obvious....
+
         #crp2 = context['members'].filter(gameround__round_number=current_round.round_number)
 
         # could you just shorten it by providing the game round object itself?

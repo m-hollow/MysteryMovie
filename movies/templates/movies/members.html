@@ -35,25 +35,6 @@
   {% endfor %}
   </ul>
 
-<!--   <br>
-  <br>
-
-  {% if current_round %}
-    <h2 class="border-bottom pb-2 mb-4">Round {{ current_round.round_number }} Participants</h2>
-    <p>The current round has {{ current_round_pairs|length }} participants.</p>
-
-    <ul class="pl-0" style="list-style-type:none">
-    {% for pair in current_round_pairs %}
-      <li>{{ pair.0.username }}<span class="float-right">{{ pair.1.total_points }} points</span></li>
-    {% empty %}
-      <li>The current round has no Participants.</li>
-    {% endfor %}
-    </ul>
-  
-  {% else %}
-    <p>There is no currently active Round.</p>
-  {% endif %} -->
-
 
 {% endif %}
 

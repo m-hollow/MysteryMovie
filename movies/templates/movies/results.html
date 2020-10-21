@@ -18,7 +18,7 @@
   <ul class="pl-0" style="list-style-type:none">
   <li>Current Round: <span class="float-right">{{ current_round.round_number }}</span></li>
   <li>Started On: <span class="float-right">{{ current_round.date_started }}</span></li>
-  <li># Movies Watched So Far: <span class="float-right">{{ movies|length }}</span></li>
+  <li># Movies Watched So Far: <span class="float-right">{{ current_round_movies|length }}</span></li>
 {% else %}
   <p>There is no currently active round.</p>
 {% endif %}
@@ -27,6 +27,26 @@
 <br>
 <br>
 
+<!-- print out each participant and their current score for this round -->
 
+
+
+<!-- Previous round results displayed below that, OR a link to display previous rounds -->
 
 {% endblock content %}
+
+
+
+<!-- you should create the UserRoundDetail object whenever a Round gets created and whenever
+    a round gets modified...but in the case of 'modified', how will you know which users are 'new'
+    to create now? You do NOT want to re-create all users, as this will 'initialize' their 
+    attributes, which would be bad: what if a user joins 'in progress': adding them would reset
+    all other users..... -->
+
+<!-- Here in Results, and/or in Admin Panel page, do this:
+
+    Movie Title
+    The following users have submitted their details for this movie:   username, username...
+    The following users still need to submit their details for this movie:   username, username...
+
+-->
