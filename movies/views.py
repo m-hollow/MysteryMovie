@@ -6,6 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.views.generic import (TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView)
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.http import Http404
+from django.db.models import Max, Min, Avg
 
 from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail)
 from .forms import AddMovieForm, UserMovieDetailForm
@@ -73,91 +75,439 @@ class SettingsView(LoginRequiredMixin, TemplateView):
         return context
 
 
-# I couldn't make this a DetailView, because that requires a pk argument to be capture by the URL, and 
+# I couldn't make this a DetailView, because that requires a pk argument to be captured by the URL, and 
 # this view is called from base.html, and afaik I have no ability to pass an argument such as a pk in base.html,
 # because I have no view for rendering it; the Results link in the navbar would need an <int:pk> in the url, which
 # I can certainly add to the URL, but how do I -pass- an argument to that URL from the base.html template ? it has
 # no access to results objects, and I have no view to provide it with that context...
-class ResultsView(ListView):
-    model = GameRound
-    template_name = 'movies/results.html'
-    context_object_name = 'game_rounds'
+class ResultsView(TemplateView):
+    """
+    When Round is in progress, this is used to display who has and has not submitted their details for each movie.
+    When Round is complete, this is used to display the results of the round.
 
+    """
+    template_name = 'movies/results.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # the context has already been built by the 'get_queryset' method (in parent), and the
-        # queryset is stored as 'game_rounds' per context_object_name attribute above.
-        
-        # this is a HUGE and kinda ungainly if block; is there a better way to organize the logic contained below?
+        # make sure a current round exists, and grab it.
+        if GameRound.objects.filter(active_round=True).exists():
+            current_round = GameRound.objects.filter(active_round=True).last()
+        else:
+            current_round = None
 
-        if context['game_rounds'].filter(active_round=True).exists():
-            current_round = context['game_rounds'].filter(active_round=True).last()
+        # a round object exists that has active_round = True
+        if current_round:
+            # flag used by template
+            active_round_exists = True
 
-        # would the template be able to loop through current_round.
-            current_round_movies = current_round.movies_from_round.all()  # uses reverse manager defined in Movie model
+            # check if the active round has been completed or not
+            if not current_round.round_completed:
+                round_concluded = False
+                user_round_details = None  # we only need this if round has ended / results updated
 
-            current_round_participants = current_round.participants.all() # get User objects related to current GameRound
+                current_round_movies = current_round.movies_from_round.all()  # uses reverse manager defined in Movie model
+                current_round_participants = current_round.participants.all() # get User objects related to current GameRound
 
-            # get UserProfile, UserMovieDetail, UserRoundDetail for each participant user:
-            
-            round_results = []
-            missing_details = []   # should this be a dict instead? think it through...
-            
-            # IMPORTANT TO-DO:
-            # this would be a great place to look into use select_related and prefetch_related to cut down on db hits!
-            # I see all kinds of places in here where 'related' objects are being directly accessed after the original
-            # relation has already been loaded...you want to 'pre-load' all those additional related objects.
+                total_details_for_round = (current_round_participants.count() * current_round_movies.count())
+                details_received = 0
 
-            for participant in current_round_participants.all():
-                participant_package = {
-                    'user': participant,
-                    'profile': participant.userprofile,    # note that it's 'userprofile', the lower case of the other end of the One-to-One
-                    'user_round_details': participant.userrounddetail_set.get(game_round=current_round),
-                    'user_movie_details_list': [],
-                } 
-                
+                round_progress_status = {}
+
                 for movie in current_round_movies:
+
+                    round_progress_status[movie.name] = {
+                        'submitted':[], 
+                        'incomplete': [],
+                    }
                     
-                    if movie.usermoviedetail_set.filter(user=participant).exists():  # exists() only works with filter(), not get() !!!
-                        user_movie_details = movie.usermoviedetail_set.get(user=participant)
-                        participant_package['user_movie_details_list'].append(user_movie_details)
-                    else:
-                        # this is the case in which the User has not yet submitted details for the given movie
-                        # should you pass the actual objects in here, or just the relevant names?
-                        missing_details.append((participant.username, movie.name ))
+                    for participant in current_round_participants:
 
-                round_results.append(participant_package)
+                        if UserMovieDetail.objects.filter(movie=movie, user=participant).exists():
+                            round_progress_status[movie.name]['submitted'].append(participant)
+                            details_received += 1
+
+                        else:
+                            round_progress_status[movie.name]['incomplete'].append(participant)
 
 
-            # generally I don't like this approach of the template having different context items depending on
-            # conditional paths; I think it should always reliably have the same set of objects, and if some aren't
-            # available, they are still listed in the context, but with value None. thus I've moved it to after the
-            # conditional check, and the else block handles setting missing values accordingly.
-            # context['missing_details'] = missing_details
-            # context['current_round_movies'] = current_round_movies
+                number_needed_details = (total_details_for_round - details_received)
+
+                if number_needed_details == 0:
+                    ready_to_conclude = True
+                else:
+                    ready_to_conclude = False
+
+            else:
+                # the active round has already been completed; template will display results, not progress.
+                round_concluded = True
+
+                # collect the UserRoundDetail objects for current round
+                user_round_details = UserRoundDetail.objects.filter(game_round=current_round)
+
+                # we already have the GameRound object stored in current_round
+
 
         else:
-            missing_details = None
-            current_round_movies = None
-            current_round = None
-            round_results = None
+            active_round_exists = False
+            round_concluded = False
+            round_progress_status = None
+            ready_to_conclude = False
+            user_round_details = None
 
 
-        # note: for 1 round, there is 6 movies, which means you'll have 6 UserMovieDetail objects per user,
-        # but only ONE UserRoundDetail object per user.
+        # you still need to collect the old rounds, package them in context, print links to them
+        # in results template; all links will go to old_rounds.html and display old round results.
 
-        context['missing_details'] = missing_details
-        context['current_round_movies'] = current_round_movies
-        context['current_round'] = current_round 
-        context['round_results_by_participant'] = round_results # round_results is a list of dictionaries.
+        # weed through these and see what is / isn't actually getting used; I think round_movies is useless...
+        context['active_round_exists'] = active_round_exists
+        context['round_concluded'] = round_concluded
+        context['current_round'] = current_round
+        context['user_round_details'] = user_round_details
+        context['round_progress_dict'] = round_progress_status
+        context['ready_to_conclude'] = ready_to_conclude
+
+        context['round_movies'] = current_round_movies
+        context['round_participants'] = current_round_participants
+
+        context['number_needed_details'] = number_needed_details
+        context['details_received'] = details_received
 
 
         return context
 
 
-# a helper function called by the Results view to compute points from round
+# the way this is designed right now, this isn't really an UpdateView -- you aren't updating the GameRound object in here....
+# this is more of a staging area for calculating and presenting the scoring results, from which you'd then trigger the actual
+# update views...
+# the trick is, since it's only creating a new data object (point_queue) and not modifying db contents, you need a way to 
+# pass that data object to the views that actually do the updating
+class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = GameRound
+    template_name = 'movies/conclude_round.html'
+    context_object_name = 'game_round'
+    # success_url = ...         ???   this isn't really being used as an UpdateView, so this seems irrelevant
+
+    login_url = 'login'
+
+    # used by UserPassesTestMixin; verify user has admin prvileges (required to conclude round)
+    def test_func(self):
+        user = self.request.user
+        return user.userprofile.is_mmg_admin   # returns True if userprofile object has is_mmg_admin True
+
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # grab all the participants of the round
+        round_participants = self.object.participants.all()
+
+        # grab all the UserRoundDetail objects for each participant
+        # user_round_details = []
+        # for user in round_participants:
+        #     urd_object = UserRoundDetail.objects.get(user=user, game_round=self.object)
+        #     user_round_details.append(urd_object)
+
+        # faster approach to above...
+        user_round_details = UserRoundDetail.objects.filter(game_round=self.object)
+
+
+        # grab all the movies in the round
+        round_movies = self.object.movies_from_round.all()   # verify if this actually gets used anywhere!
+
+
+        # this will store points per participant, as calculated by function calls
+        point_queue = {}
+
+        for participant in round_participants:
+
+            # add the participant to the point_queue, establish nested dicts for point storage
+            point_queue[participant.username] = {
+                'points_by_guess': [],
+                'points_by_movie_known': [],
+                'points_by_movie_unseen': [],
+                'points_by_movie_liked': [],
+                'points_by_movie_disliked': [],
+            }
+
+            # TO-DO: ALL THE BELOW LOGIC + THE FUNCTIONS CALLED THEREIN MUST BE UPDATED TO ACCOUNT FOR THE
+            # NEW FORMAT OF point_queue -- IT HAS THREE KEYS WITH THREE LISTS, SUBDIVIDING MOVIE POINTS
+            # INTO THE TWO DIFFERNET TYPES, KNOWN AND UNSEEN; update all logic to follow this format.
+
+            points_by_guess = self.calculate_guess_points(participant)
+            point_queue[participant.username]['points_by_guess'].extend(points_by_guess)
+
+
+            points_by_movie_known, points_by_movie_unseen, points_by_movie_liked, points_by_movie_disliked = self.calculate_movie_points(participant)
+
+            point_queue[participant.username]['points_by_movie_known'].extend(points_by_movie_known)
+            point_queue[participant.username]['points_by_movie_unseen'].extend(points_by_movie_unseen)
+            point_queue[participant.username]['points_by_movie_liked'].extend(points_by_movie_liked)
+            point_queue[participant.username]['points_by_movie_disliked'].extend(points_by_movie_disliked)
+
+
+        # Note: the dict returned by this function has sorted the key-value pairs (participant, points) in order
+        # from high (winner) to low. This will be userful later when using this dict to update the actual database
+        # records.
+        total_points_by_participant = self.total_points_dict_builder(point_queue)
+
+        # we won't use key=dict.get or itemgetter to retrieve winning key, because that wouldn't account for ties;
+        # determine the highest score in the dictionary
+        winning_score = max(total_points_by_participant.values())
+
+        # retrieve all keys that had that score
+        winning_names = [name for name, value in total_points_by_participant.items() if value == winning_score]
+
+        # get the actual object of the winner(s) and store them in a list:
+        winners = []
+
+        for name in winning_names:
+            winner_object = Users.objects.get(username__icontains=name)
+            winners.append(winner_object)
+
+        # if there is a tie, determine single winner by average movie rating;
+        # figure out how to refactor this as a query using aggregate Max; this feels like a very long route that could
+        # be refactored to simply be a single query with aggregate....???
+        # "of this set of user objects, return me the one whose movie choice has the highest average rating"
+        # it's a deep search, becuase it goes User > Movie choice > UserMoveDetail objects > rating field average
+        # you could combine the aggregate Avg with the order_by function, and then extract the first() from those results...
+
+        if len(winners) > 1:   # can we do .count instead on the list we created, since it contains records?
+            winner_tuples = []
+            for winner in winners:
+                # thing to verify here is: can we use *both* a standard lookup + a deeper lookup together in the same get()...
+                winner_movie = winner.related_movies.get(game_round=self.object, usermoviedetail__is_user_movie=True)
+                average_rating = winner_movie.average_rating
+                winner_tuples.append((winner, average_rating))
+
+            winner = self.return_winner_from_tie(winner_tuples)
+
+        else:
+            winner = winners[0]
+
+        # you need to package the participants, sorted by high to low winning results (points)
+        # so they display in that order in the template
+
+        # add logic to determine ONE winner if multiple have same point total;
+        # go by movie ratings on their movie
+
+
+        # remember that the key in point_queue is just a string of the p's name, NOT the p object itself. change this?
+
+        self.request.sessions['winner_name'] = winner.username
+        self.request.sessions['point_queue'] = point_queue
+        self.request.sessions['total_points_by_participant'] = total_points_by_participant
+
+        context['winner'] = winner
+        context['round_participants'] = round_participants      # sort these by rank; thing is, this view is 'prelim' results...
+        context['user_round_details'] = user_round_details
+        context['round_movies'] = round_movies                  # do we actually need this? is it used?
+        context['point_queue'] = point_queue
+
+        return context
+
+    def return_winner_from_tie(self, tuple_list):
+        winning_tuple = max(tuple_list, key=lamdba x : x[1])
+        return winning_tuple[0]
+
+
+    def total_points_dict_builder(self, point_queue):
+        
+        total_point_dict = {}
+
+        for participant, results in point_queue.items():
+            total_points_for_p = (len(results['points_by_guess']) + len(results['points_by_movie_known']) + 
+                len(results['points_by_movie_unseen']) + len(results['points_by_movie_liked']) + 
+                len(results['points_by_movie_disliked']))
+
+            total_point_dict[participant] = total_points_for_p
+
+        # sort the dictionary so key-val pair with highest value is first (descending). this requires rebuilding the 
+        # sorted list of tuples returned by sorted() into a new dictionary, using a dictionary comprehension:
+
+        final_dict = {k: v for k, v in sorted(total_point_dict.items(), key=lambda x: x[1], reverse=True)}
+
+
+        return final_dict
+
+
+
+    def calculate_guess_points(self, participant):
+
+        points_by_guess = []
+
+        round_movies = self.object.movies_from_round.all()
+
+        participant_umds = [movie.usermoviedetail_set.get(user=participant) for movie in round_movies]
+
+        for umd in participant_umds:
+            user_that_chose_movie = UserMovieDetail.objects.get(movie=umd.movie, is_user_movie=True).user
+
+            if umd.user_guess == user_that_chose_movie:
+                point_dict = {
+                    'point_value': 1,
+                    'point_string': '+1  Correctly guessed that {} chose {}'.format(user_that_chose_movie.username, umd.movie.name)
+                }
+
+                points_by_guess.append(point_dict)
+
+        return points_by_guess
+
+
+    def calculate_movie_points(self, participant):
+
+        points_by_movie_known = []
+        points_by_movie_unseen = []
+        points_by_movie_liked = []
+        points_by_movie_disliked = []
+
+        # get the movie object that is this participant's movie choice
+        participant_movie = self.object.movies_from_round.get(usermoviedetail__user=participant, usermoviedetail__is_user_movie=True)
+
+        # get all the UMD objects for the particular movie selected above
+        umd_objects = UserMovieDetail.objects.filter(movie=participant_movie)
+
+        for umd in umd_objects:
+            if not umd.seen_previously:
+                point_dict_one = {
+                    'point_value': 1,
+                    'point_string': '+1  {} had not previously seen {}.'.format(umd.user.username, umd.movie.name)
+                }
+
+                points_by_movie_unseen.append(point_dict)
+
+            if umd.heard_of:
+                point_dict_two = {
+                    'point_value': 1,
+                    'point_string': '+1  {} had heard of {}'.format(umd.user.username, umd.movie.name)
+                }
+
+                points_by_movie_known.append(point_dict_two)
+
+
+            if umd.star_rating == 1:
+                point_dict_three = {
+                    'point_value': 1,
+                    'point_string': '+1 {} gave {} the worst possible rating, 1 star.'.format(umd.user.username, umd.movie.name)
+
+                }
+
+                points_by_movie_disliked.append(point_dict_three)
+
+            if umd.star_rating > 3:
+                point_dict_four = {
+                    'point_value': 1,
+                    'point_string': '+1 {} rated {} higher than 3 stars.'.format(umd.user.username, umd.movie.name)
+                }
+
+                points_by_movie_liked.append(point_dict_four)
+
+
+        return points_by_movie_known, points_by_movie_unseen, points_by_movie_liked, points_by_movie_disliked
+
+
+# view for updating each UserRoundDetail object
+class CommitUserRoundView(LoginRequiredMixin, UpdateView):
+    model = UserRoundDetail
+    template = 'movie/commit_user_round.html'
+
+    fields = ['correct_guess_points', 'known_movie_points', 'unseen_movie_points', 'finalized_by_admin']
+
+    login_url = 'login'
+
+
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        # access sesssions data for the dictionary of round results
+        point_queue = self.request.sessions['point_queue']
+        total_points_by_participant = self.request.sessions['total_points_by_participant']
+        winner_name = self.request.sessions['winner_name']
+
+        this_user = self.object.user
+
+        if this_user.username == winner_name:
+            form.instance.winner_bool = True
+
+        form.instance.correct_guess_points = point_queue[this_user.username]['points_by_guess']
+        form.instance.known_movie_points = point_queue[this_user.username]['points_by_movie_known']
+        form.instance.unseen_movie_points = points_queue[this_user.username]['points_by_movie_unseen']
+
+
+        # test this:
+        #form.save(commit=False)    # do not actually update database until it's reviewed? will this still display?
+        form.save()
+        return form
+
+
+
+    def form_valid(self, form):
+        """Update the UserProfile object with the data saved in UserRoundObject"""
+
+        # we will update the related UserProfile object with all the scoring values obtained for this round
+        # UserProfile tracks global progress, not per-round.
+
+        this_user = self.object.user
+        user_profile = this_user.userprofile    # one-to-one connection, reverse access syntax
+
+        user_profile.total_correct_guess_points += form.instance.correct_guess_points
+        user_profile.total_known_movie_points += form.instance.known_movie_points
+        user_profile.total_unseen_movie_points += form.instance.unseen_movie_points
+        user_profile.total_liked_movie_points += form.instance.liked_movie_points
+        user_profile.total_disliked_movie_points += form.instance.disliked_movie_points
+
+        if form.instance.winner_bool:
+            user_profile.rounds_won += 1
+
+        return super().form_valid(form)   # call to super() saves the form
+
+
+    def get_success_url(self):
+        return reverse('movies_conclude_round', kwargs={'pk': self.object.game_round.pk})
+
+
+
+# view for updating the overall GameRound object
+class CommitGameRoundView(LoginRequiredMixin, UpdateView):
+    model = GameRound
+    template = 'movie/commit_game_round.html'
+    #success_url = reverse_lazy('movies:conclude_round', kwargs={'pk': self.object.pk})
+
+    fields = ['date_finished', 'winner', 'participants', 'round_completed']
+
+    login_url = 'login'
+
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        winner_name = self.request.sessions['winner_name']
+
+        winner = User.objects.get(name__icontains=winner_name)
+
+        form.instance.winner = winner
+
+        form.save()
+        return form
+
+
+    def form_valid(self, form):
+        """do I have any tasks to perform in here ??"""
+        return super().form_valid(form)
+
+
+    def get_success_url(self):
+        return reverse('movies:conclude_round', kwargs={'pk': self.object.pk})
+
+
+
+
+class OldRoundsView(ListView):
+    queryset = GameRound.objects.filter(active_round=False)
+    template_name = 'movies/old_rounds.html'
+    context_object_name = 'game_rounds'
 
 
 
@@ -173,6 +523,7 @@ class MovieDetail(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
+        # this is fairly redundant, you could just use self.object whenever you need to access the movie object...
         movie = self.object
 
         # put exception handling here, or use GetObjectOr404...
@@ -185,30 +536,17 @@ class MovieDetail(LoginRequiredMixin, DetailView):
             # user_movie_details = UserMovieDetail(user=user, movie=movie)
             # user_movie_details.save()
 
+        # we simply build the form we want here, and pass it in the context; this works, even though this CBV is a 
+        # DetailView, not an edit view. When the form is processed, a different view will be called, process_details.
         form = UserMovieDetailForm()
+        #form.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=self.object.game_round) # this works! note: this is equivalent to movie.game_round
 
-        results_ready = False       # idea: create a 'Rounds' table in the db. 
-                                    # you need a 'state' variable called results_ready that 
-                                    # applies to the -entire round-. 
-                                    # then, on an admin level, you have a button to flip that
-                                    # value to True, and then results will appear across the
-                                    # entire site.
+        results_ready = False
 
-
-        # add the current game round to the context, so you can check if it's been completed or not,
-        # and display the results if so. Note: this will replace 'results ready' below.
-        # you can retreive the round through the Movie object, that's a direct connection
-
-        game_round = movie.game_round   # this retrieves the object, right? it's an FK field, many-to-one, so there
-                                        # is only one possible GameRound record to retrieve here; still make sure this
-                                        # assignment is actually assigning the game round object!
-
+        game_round = movie.game_round
 
         # it's also worth noting that some of this stuff can be accessed in the template, through the base objects
-        # in the context; e.g. since this template has Movie object by default, you could access gameround in the template
-        # using movie.game_round -- so there's no real need to package it individually here, it's probably not efficient.
-        # I think the point of accessing things here in the view is if you need to do something more complicated with
-        # them, but if it's just to access it, store it in a name, and pass it in the context -- it's probably redundant.
+        # in the context; check for redundancy...
 
         context['game_round'] = game_round
         context['user_profile'] = user_profile
@@ -220,10 +558,14 @@ class MovieDetail(LoginRequiredMixin, DetailView):
 
 @login_required
 def process_details(request, movie_pk):
-    
+    """This is when the UMD is being created for the first time, as opposied to modifying existing record"""
     if request.method == 'POST':
 
-        movie = Movie.objects.get(pk=movie_pk)
+        # verify that this usage of select_related is working as desired 
+        movie = Movie.objects.select_related('game_round').get(pk=movie_pk)
+
+        # game_round is cached by select_related above, so this line does not perform a query on the db itself:
+        game_round = movie.game_round    # connects to a single specific game_round instance
 
         form = UserMovieDetailForm(data=request.POST)
 
@@ -243,6 +585,39 @@ def process_details(request, movie_pk):
             # numerous times in NoirDB views for the UMD) but not to redirect() ?
 
 
+@login_required
+def update_details(request, umd_pk):
+    """update details of an existing record"""
+    umd_object = UserMovieDetail.objects.select_related('movie').get(pk=umd_pk)
+
+    # we want the movie object so we can redirect to it when finished (see below); alternatively, we could
+    # pass the url plus required values-to-be-captured  to redirect instead.
+    movie = umd_object.movie
+
+    if umd_object.user != request.user:
+        raise Http404
+
+    if request.method != 'POST':
+        # initial GET request
+        form = UserMovieDetailForm(instance=umd_object) # create the form, using data from existing object
+        # filter users so only users that are participating in current round are displayed in guess choice:
+        #form.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=movie.game_round) # works!
+
+    else:
+        # POST request
+        form = UserMovieDetailForm(instance=umd_object, data=request.POST)  # UserMovieDetailForm(request.POST, instance=umd_object) is also OK
+        if form.is_valid():
+            form.save()
+
+            return redirect(movie)
+
+    context = {'form': form, 'object': umd_object }
+    return render(request, 'movies/update_details.html', context)
+
+
+# the current big Q: how to get the modification of the form.fields performed in the function above to work inside
+# the CBV below....what method do I override to put it there? it -must- go in the GET portion of the CVB's functionality...
+
 class UpdateDetailsView(LoginRequiredMixin, UpdateView):
     model = UserMovieDetail
     template_name = 'movies/update_details.html'
@@ -250,11 +625,6 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
 
     login_url = 'login' # used by LoginRequiredMixin
 
-    # why reverse instead of redirect()? because the CVB is handling the redirect itself. this method simply 
-    # supplies the URL that the CBV will redirect to. when you write a non-CBV function based view, you use redirect;
-    # the CBV is probably taking the value returned by get_success_url and calling HTTPResponseRedirect on it (I say
-    # that rather than redirect() becuase redirect() includes a reverse, which would be redundant here since get_success_url
-    # is handling the reverse part....
 
     def get_success_url(self):
         return reverse('movies:movie', kwargs={'pk': self.object.movie.pk, 'slug': self.object.movie.slug })

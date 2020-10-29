@@ -1,6 +1,7 @@
 from django import forms
+from django.contrib.auth.models import User
 
-from .models import Movie, UserMovieDetail
+from .models import Movie, UserMovieDetail, GameRound
 
 # currently, this form isn't really necessary; you could have the CreateView aut-create the form, since you
 # don't have any deviations from the default behavior in the form definition.
@@ -25,4 +26,26 @@ class UserMovieDetailForm(forms.ModelForm):
             'comments': forms.Textarea(attrs={'rows': 1}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        current_round = GameRound.objects.filter(active_round=True).last()
+
+        self.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=current_round)
+
+# don't forget the .queryset part of the assignment!
+
+
+# the overriden __init__ method above works successfully to filter the ModelChoiceField results
+# to only show the Users that are participants (related to) the current GameRound.
+
+# the other appraoch is to set form.fields in the GET portion of your views; I've left the code
+# in for doing this, commented out. It's in MovieDetail (because that is the view that renders
+# the blank form initially) and also in update_details (the form view to modify already submitted
+# details). I have no figured out yet how to implement that behavior into the CBV UpdateView
+# version of update_details, UpdateDetailsView, so it is currently not being used (but, since
+# you currently are using this form-modification version of a solution, you could start using
+# the CVB UpdateDetailsView again if you wanted to!). Hopefully someone answers my stack overflow
+# question so I know which method to override to get this behavior working in a CBV generic
+# editing view.
 

@@ -14,27 +14,64 @@
 {% block content %}
 
 
-{% if current_round %}
-  <ul class="pl-0" style="list-style-type:none">
-  <li>Current Round: <span class="float-right">{{ current_round.round_number }}</span></li>
-  <li>Started On: <span class="float-right">{{ current_round.date_started }}</span></li>
-  <li># Movies Watched So Far: <span class="float-right">{{ current_round_movies|length }}</span></li>
+{% if active_round_exists %}
+  
+  {% if not round_concluded %}
+
+      <ul class="pl-0" style="list-style-type:none">
+      <li>Round<small><i>&nbsp;(in progress)</i></small>:
+      <span class="float-right">{{ current_round.round_number }}</span>
+      </li>
+
+      <li>Started On: <span class="float-right">{{ current_round.date_started }}</span></li>
+      <li># Participating Members: <span class="float-right">{{ round_participants|length }}</span></li>
+      <li># Movies Watched So Far: <span class="float-right">{{ round_movies|length }}</span></li>
+      </ul>
+
+      <br>
+
+      <p class="border-bottom mb-2">Movie<span class="float-right">Participants</span></p>
+
+      <ul class="pl-0" style="list-style-type:none">
+      {% for movie_name, status in round_progress_dict.items %}
+        <li><b>{{ movie_name }}</b></li>
+          <ul class="pl-4" style="list-style-type:none">
+            <li>Details Received:<span class="float-right">
+            {% for user in status.submitted %}
+              &nbsp;<small>{{ user.username }}</small>
+            {% empty %}
+              n/a
+            {% endfor %}
+            </span></li>
+        
+            <li>Need details From:<span class="float-right">
+            {% for user in status.incomplete %}
+              &nbsp;<small>{{ user.username }}</small>
+            {% empty %}
+              n/a
+            {% endfor %}
+            </span></li>
+          </ul>
+      <br>
+      {% endfor %}
+      </ul>
+  
+  {% else %}
+    <p>The current round has concluded. Here are the results...</p>
+
+    <p>Display results here...</p>
+
+
 {% else %}
   <p>There is no currently active round.</p>
 {% endif %}
 
 
-<br>
-<br>
+<p class="border-bottom mb-2">Links to Results of Previous Rounds</p>
 
-<!-- print out each participant and their current score for this round -->
-
-
-
-<!-- Previous round results displayed below that, OR a link to display previous rounds -->
+<!-- loop through old rounds here, each one printing as a link to old_rounds url -->
 
 {% endblock content %}
-
 
 
 <!-- you should create the UserRoundDetail object whenever a Round gets created and whenever

@@ -1,0 +1,78 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+  <title>Conclude Round</title>
+{% endblock title %}
+
+
+{% block page_header %}
+  <h2>Conclude Round</h2>
+{% endblock page_header %}
+
+{% block content %}
+
+<p>Results of Round {{ game_round.round_number }}</p>
+
+<h4>Round Winner: {{ winner.username }}</h4>
+
+{% if not game_round.round_completed %}
+
+<p class="border-bottom mb-2">Review and Submit User Details</p>
+
+    <ul class="pl-0" style="list-style-type:none">
+    {% for urd in user_round_details %}
+      <li><a href="{% url 'movies:commit_user_round' urd.pk %}">{{ urd.user.username }}</a>
+        <span class="float-right">
+          {% if urd.finalized_by_admin %}
+          <i>Done!</i>
+          {% else %}
+          Not Submitted; please review.
+          {% endif %}
+        </span></li>
+    </ul>
+
+    <br>
+
+    Admin Instructions:<br>
+    <p>
+    Review and submit the details for each User.<br>
+    When all are marked 'Done!', you can submit the Round itself below.
+   </p>
+
+   <p>Note: once the Round is submitted, it will be marked complete, and the website will display
+   the results of the round!</p>
+
+    <a href="{% url 'movies:commit_game_round' game_round.pk %}">Game Round {{ game_round.round_number }}</a>
+      <span class="float-right">Not yet submitted.</span>
+
+{% else %}
+  <p>The current round, number {{ game_round.round_number }}, has already been completed by Admin.</p>
+  <p>Results are displayed on index, movie and results pages.</p>
+
+
+
+{% endblock content %}
+
+
+
+
+
+
+<!--  looping through the point_queue to display point results by type, per participant:
+
+  {% for parp, results in point_queue.items %}
+  <p class="border-bottom">{{ parp }}</p>
+  <ul>
+    {% for point_type, points_list in results.items %}
+    <li>{{ point_type }}</li>
+      <ul>
+      {% for point_dict in points_list %}
+        <li>point_dict.point_string</li>
+      {% endfor %}
+      </ul>
+    {% endfor %}
+  </ul>
+{% endfor %}
+
+-->

@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (IndexPageView, MovieDetail, MembersView, AddMovieView, 
-    process_details, UpdateDetailsView, TrophiesView, ResultsView, CreateRoundView, EditRoundView, SettingsView)
+    process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundsView, ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, SettingsView)
 
 app_name = 'movies'
 urlpatterns = [
@@ -15,16 +15,20 @@ urlpatterns = [
     path('add_details/<int:movie_pk>/', process_details, name='add_details'),
 
     # this one, on the other hand, renders its own page, update_details.html
-    path('update_details/<int:pk>/', UpdateDetailsView.as_view(), name='update_details'),
+    #path('update_details/<int:pk>/', UpdateDetailsView.as_view(), name='update_details'),
+
+    path('update_details/<int:umd_pk>/', update_details, name='update_details'),
 
     path('trophies/', TrophiesView.as_view(), name='trophies'),
     path('create_round/',CreateRoundView.as_view(), name='create_round'),
     path('edit_round/<int:pk>/', EditRoundView.as_view(), name='edit_round'),
+    path('conclude_round/<int:pk>/', ConcludeRoundView.as_view(), name='conclude_round'),
+    path('commit_user_round/<int:pk>/', CommitUserRoundView.as_view(), name='commit_user_round'),
+    path('commit_game_round/<int:pk>/', CommitGameRoundView.as_view(), name='commit_game_round)'),
     path('results/', ResultsView.as_view(), name='results'),
-    path('settings/', SettingsView.as_view(), name='settings')
+    path('old_rounds/', OldRoundsView.as_view(), name='old_rounds'),
+    path('settings/', SettingsView.as_view(), name='settings'),
 ]
-
-
 
 
 

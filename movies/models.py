@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.urls import reverse
 from django.utils.text import slugify
+from django.db.models import F, Max, Min, Avg
 from datetime import date
 
 
@@ -18,7 +19,7 @@ class GameRound(models.Model):
     active_round = models.BooleanField(choices=bool_choices, default=False, verbose_name="Is this round currently active?")  # is this the 'active' round, now in progress.
 
     # round_completed is distinct from current_round = False, because you might add a round that hasn't started yet
-    round_completed = models.BooleanField(choices=bool_choices, default=False, verbose_name="Round Already Completed")
+    round_completed = models.BooleanField(choices=bool_choices, default=False, verbose_name="Round Already Completed?")
 
     date_started = models.DateField(default=date.today, null=True, verbose_name="Round Start Date")
     date_finished = models.DateField(default=date.today, null=True, blank=True, verbose_name="Round Finished Date")
@@ -43,7 +44,6 @@ class GameRound(models.Model):
         super().save(*args, **kwargs)
 
 
-
 class Trophy(models.Model):
     name = models.CharField(max_length=200)
     condition = models.CharField(max_length=1000)
@@ -51,7 +51,6 @@ class Trophy(models.Model):
 
     def __str__(self):
         return self.name + " - " + self.condition
-
 
 
 #intermediary table of the 'participants' M2M field in GameRound above
@@ -65,15 +64,19 @@ class UserRoundDetail(models.Model):
     correct_guess_points = models.PositiveSmallIntegerField(default=0, null=True)
     known_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     unseen_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
+    liked_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
+    disliked_movie_points = models.PositiveSmallIntegerField(defualt=0, null=True)
+
     trophy_points = models.PositiveSmallIntegerField(default=0, null=True)
 
     trophies_won = models.ManyToManyField(Trophy, verbose_name='Trophies Won This Round', 
         related_name='related_user_round_details')
 
+    finalized_by_admin = models.BooleanField(default=False)
+
 
     def __str__(self):
         return 'Round {} results for {}'.format(self.game_round.round_number, self.user.username)
-
 
 
 class Movie(models.Model):
@@ -85,6 +88,7 @@ class Movie(models.Model):
     # remove null=True here, every movie must be assigned to a round
     game_round = models.ForeignKey(GameRound, null=True, on_delete=models.CASCADE, related_name='movies_from_round')
 
+    # when is this getting set? are we using it at all? 
     chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 
         related_name='chosen_movie', null=True, blank=True, verbose_name="Chosen By User")
 
@@ -109,6 +113,13 @@ class Movie(models.Model):
         editable = True,
         max_length = 150,
         )
+
+
+    @property
+    def average_rating(self):
+        # aggregate returns a dict
+        average_dict = self.usermoviedetail_set.aggregate(avg_rating=Avg(star_rating))
+        return average_dict['avg_rating']
 
 
     class Meta:
@@ -143,6 +154,9 @@ class UserProfile(models.Model):
     total_correct_guess_points = models.PositiveSmallIntegerField(default=0, null=True)
     total_known_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     total_unseen_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
+    total_liked_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
+    total_disliked_movie_points= models.PositiveSmallIntegerField(default=0, null=True)
+
     total_trophy_points = models.PositiveSmallIntegerField(default=0, null=True)
 
     # does this user have MMG admin priviledges (distinct from django admin, mind you!)
@@ -151,15 +165,15 @@ class UserProfile(models.Model):
     # same issue here, it's global, not per-Round
     total_trophies = models.ManyToManyField(Trophy, through='TrophyProfileDetail', related_name='related_profiles')
 
+    # this could be 
+    rounds_won = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
+
     def __str__(self):
         return 'Profile record for User {}'.format(self.user)
 
     @property
     def total_points(self):
         return (self.total_correct_guess_points + self.total_known_movie_points + self.total_unseen_movie_points + self.total_trophy_points)
-
-    def update_points(self):
-        pass
     
     def calculate_trophy_points(self):
         total = 0
@@ -168,7 +182,6 @@ class UserProfile(models.Model):
                 total += trophy.point_value
 
         self.total_trophy_points = total
-
 
 
 class UserMovieDetail(models.Model):

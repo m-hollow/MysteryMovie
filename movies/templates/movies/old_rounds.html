@@ -1,0 +1,24 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+<title>Results - Old Rounds</title>
+{% endblock title %}
+
+{% block page_header %}
+  <h2>Results - Completed Rounds</h2>
+{% endblock page_header %}
+
+
+{% block content %}
+
+<ul class="pl-0" style="list-style-type:none">
+  {% for round in game_rounds %}
+    <li class="border-bottom mb-2">Round {{ round.round_number }} Results:</li>
+    <li>Winner:<span class="float-right">{{ round.winner.username }}</span></li>
+  {% empty %}
+  <li>There are no previous Rounds to display results for at this time.</li>
+  {% endfor %}
+</ul>
+
+{% endblock content %}
