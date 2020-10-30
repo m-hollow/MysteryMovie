@@ -65,7 +65,7 @@ class UserRoundDetail(models.Model):
     known_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     unseen_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     liked_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
-    disliked_movie_points = models.PositiveSmallIntegerField(defualt=0, null=True)
+    disliked_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
 
     trophy_points = models.PositiveSmallIntegerField(default=0, null=True)
 
@@ -86,7 +86,10 @@ class Movie(models.Model):
     bool_choices = ((True, 'Yes'), (False, 'No'))
 
     # remove null=True here, every movie must be assigned to a round
-    game_round = models.ForeignKey(GameRound, null=True, on_delete=models.CASCADE, related_name='movies_from_round')
+    # IMPORTANT QUESTION; when I try to remove it and do makemigrations, even with an EMPTY database (e.g.
+    # no Movie records exist, it still throws the 'set default' warning, wanting me to provide a default
+    # for 'existing rows' -- but there are no existing rows!
+    game_round = models.ForeignKey(GameRound, default="", on_delete=models.CASCADE, related_name='movies_from_round')
 
     # when is this getting set? are we using it at all? 
     chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 

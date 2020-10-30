@@ -16,10 +16,16 @@
 
 
 
+<form method="post" action="" class="form">
+  {% csrf_token %}
+  {% bootstrap_form form %}
+  <br>
+  <button class="btn btn-secondary" type="submit">Submit Round Details</button>
+</form>
 
 
-
-
+<br>
+<a href="{% url 'movies:conclude_round' game_round.pk %}"><b><span class="float-right">Go Back</b></span></a></p>
 
 
 

@@ -29,9 +29,21 @@ class UserMovieDetailForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # need this for grabbing the queryset assigned below
         current_round = GameRound.objects.filter(active_round=True).last()
 
         self.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=current_round)
+
+
+# class UserRoundDetailForm(forms.ModelForm):
+#     class Meta:
+#         model = UserRoundDetail
+#         fields = []
+
+
+
+
+
 
 # don't forget the .queryset part of the assignment!
 

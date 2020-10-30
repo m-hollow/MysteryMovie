@@ -12,13 +12,15 @@
 
 {% block content %}
 
-<p>Results of Round {{ game_round.round_number }}</p>
+<p>Preliminary Results of Round {{ game_round.round_number }}</p>
 
-<h4>Round Winner: {{ winner.username }}</h4>
+<h5>Round Winner: <b>{{ winner.username }}</b></h5>
+
+<br>
 
 {% if not game_round.round_completed %}
 
-<p class="border-bottom mb-2">Review and Submit User Details</p>
+<p class="border-bottom mb-2">Review Participant Scores</p>
 
     <ul class="pl-0" style="list-style-type:none">
     {% for urd in user_round_details %}
@@ -27,29 +29,40 @@
           {% if urd.finalized_by_admin %}
           <i>Done!</i>
           {% else %}
-          Not Submitted; please review.
+          <small>Not Submitted</small>
           {% endif %}
         </span></li>
+    {% endfor %}
     </ul>
 
     <br>
 
-    Admin Instructions:<br>
+    <p class="mb-2"><b>Admin Instructions:</b></p>
     <p>
-    Review and submit the details for each User.<br>
-    When all are marked 'Done!', you can submit the Round itself below.
+    • Click a user name to review & submit their scores.<br>
+    • Once all users are marked <i>done</i>, you can submit the Round below.
    </p>
+  
 
-   <p>Note: once the Round is submitted, it will be marked complete, and the website will display
-   the results of the round!</p>
+   <br>
+
+    <p class="border-bottom mb-2"><b>Finalize Round Results</b></p>
 
     <a href="{% url 'movies:commit_game_round' game_round.pk %}">Game Round {{ game_round.round_number }}</a>
-      <span class="float-right">Not yet submitted.</span>
+      <span class="float-right"><small>Not Submitted</small></span>
+
+   <br>
+   <br>
+   <p><b><i>Note:</i></b><br>
+   Once the Round is submitted, the website will update to display
+   the finalized results of the round (replacing the 'in progress' details).</p>
+
 
 {% else %}
   <p>The current round, number {{ game_round.round_number }}, has already been completed by Admin.</p>
   <p>Results are displayed on index, movie and results pages.</p>
 
+{% endif %}
 
 
 {% endblock content %}

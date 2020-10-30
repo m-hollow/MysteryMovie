@@ -31,9 +31,11 @@
       <h3 class="masthead-brand">Mystery Movie Club</h3>
       <nav class="nav nav-masthead justify-content-center">
         {% with url_name=request.resolver_match.url_name %}
-          <a class="nav-link {% if url_name == 'index' %} active {% endif %}" href="{% url 'movies:index' %}">Home</a>
+          <a class="nav-link {% if url_name == 'index' %} active {% endif %}" href="{% url 'movies:index' %}">Current Round</a>
           <a class="nav-link {% if url_name == 'members' %} active {% endif %}" href="{% url 'movies:members' %}">Members</a>
-          <a class="nav-link {% if url_name == 'trophies' %}  active {% endif %}" href="{% url 'movies:trophies' %}">Trophies</a>
+
+  <!--         <a class="nav-link {% if url_name == 'trophies' %}  active {% endif %}" href="{% url 'movies:trophies' %}">Trophies</a> -->
+
           <a class="nav-link {% if url_name == 'results' %} active {% endif %}" href="{% url 'movies:results' %}">Results</a>
         {% endwith %}
       </nav>

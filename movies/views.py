@@ -102,13 +102,13 @@ class ResultsView(TemplateView):
             # flag used by template
             active_round_exists = True
 
-            # check if the active round has been completed or not
-            if not current_round.round_completed:
-                round_concluded = False
-                user_round_details = None  # we only need this if round has ended / results updated
+            current_round_movies = current_round.movies_from_round.all()  # uses reverse manager defined in Movie model
+            current_round_participants = current_round.participants.all() # get User objects related to current GameRound
 
-                current_round_movies = current_round.movies_from_round.all()  # uses reverse manager defined in Movie model
-                current_round_participants = current_round.participants.all() # get User objects related to current GameRound
+            if not current_round.round_completed:
+
+                round_concluded = False
+                user_round_details = None  # we only need this if round has ended / results updated    
 
                 total_details_for_round = (current_round_participants.count() * current_round_movies.count())
                 details_received = 0
@@ -148,6 +148,19 @@ class ResultsView(TemplateView):
 
                 # we already have the GameRound object stored in current_round
 
+                # have to set this due to context; better way to do this to avoid repetition with other branch ??
+                # you could just add to the context within the branches, but then the template had a changing
+                # context, which I don't like...
+
+                number_needed_details = None
+                details_received = None
+                ready_to_conclude = False # it feels weird to set this to False here; the reality is that the variable
+                                          # is only meaningful if round_concluded = False; here, round_concluded is True
+                                          # and this variable is no longer meaningfully at all, but is being set simply
+                                          # because the context expects it. but it seems decepetive to say False to
+                                          # 'ready_to_conclude', and the meaning could be misinterpreted; so think about
+                                          # else to package these flags / status checks that would be clearer.
+
 
         else:
             active_round_exists = False
@@ -155,6 +168,10 @@ class ResultsView(TemplateView):
             round_progress_status = None
             ready_to_conclude = False
             user_round_details = None
+            current_round_movies = None
+            current_round_participants = None
+            number_needed_details = None
+            details_received = None
 
 
         # you still need to collect the old rounds, package them in context, print links to them
@@ -188,6 +205,9 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     template_name = 'movies/conclude_round.html'
     context_object_name = 'game_round'
     # success_url = ...         ???   this isn't really being used as an UpdateView, so this seems irrelevant
+
+    # this has to be defined, because this is an UpdateView, even though we don't use a form
+    fields = []
 
     login_url = 'login'
 
@@ -263,7 +283,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         winners = []
 
         for name in winning_names:
-            winner_object = Users.objects.get(username__icontains=name)
+            winner_object = User.objects.get(username__icontains=name)
             winners.append(winner_object)
 
         # if there is a tie, determine single winner by average movie rating;
@@ -295,9 +315,9 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         # remember that the key in point_queue is just a string of the p's name, NOT the p object itself. change this?
 
-        self.request.sessions['winner_name'] = winner.username
-        self.request.sessions['point_queue'] = point_queue
-        self.request.sessions['total_points_by_participant'] = total_points_by_participant
+        self.request.session['winner_name'] = winner.username
+        self.request.session['point_queue'] = point_queue
+        self.request.session['total_points_by_participant'] = total_points_by_participant
 
         context['winner'] = winner
         context['round_participants'] = round_participants      # sort these by rank; thing is, this view is 'prelim' results...
@@ -308,7 +328,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return context
 
     def return_winner_from_tie(self, tuple_list):
-        winning_tuple = max(tuple_list, key=lamdba x : x[1])
+        winning_tuple = max(tuple_list, key=lambda x : x[1])
         return winning_tuple[0]
 
 
@@ -375,7 +395,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     'point_string': '+1  {} had not previously seen {}.'.format(umd.user.username, umd.movie.name)
                 }
 
-                points_by_movie_unseen.append(point_dict)
+                points_by_movie_unseen.append(point_dict_one)
 
             if umd.heard_of:
                 point_dict_two = {
@@ -410,37 +430,39 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 # view for updating each UserRoundDetail object
 class CommitUserRoundView(LoginRequiredMixin, UpdateView):
     model = UserRoundDetail
-    template = 'movie/commit_user_round.html'
+    template_name = 'movies/commit_user_round.html'
+    context_object_name = 'user_round_detail'
 
     fields = ['correct_guess_points', 'known_movie_points', 'unseen_movie_points', 'finalized_by_admin']
 
     login_url = 'login'
 
 
+    # note that you could use get_initial or get_object here
+    # def get_object(self):
+    #     obj = super().get_object()
+    #     # modify obj as needed here
+    #     obj.save(commit=False)  # we don't want anything committed until form_valid is called to submit & save object
+    #                             # question: could we skip saving altogether here? would it still display?
 
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
+
+    # only need this one OR get_object; not both. note that this approach doesn't include any save() call, so it might
+    # be overall cleaner / preferable, since we don't want to save until form_valid is called.
+    def get_initial(self):
+        initial = super().get_initial()
 
         # access sesssions data for the dictionary of round results
-        point_queue = self.request.sessions['point_queue']
-        total_points_by_participant = self.request.sessions['total_points_by_participant']
-        winner_name = self.request.sessions['winner_name']
+        point_queue = self.request.session['point_queue']
+        total_points_by_participant = self.request.session['total_points_by_participant']
+        winner_name = self.request.session['winner_name']
 
         this_user = self.object.user
 
-        if this_user.username == winner_name:
-            form.instance.winner_bool = True
+        initial['correct_guess_points'] = len(point_queue[this_user.username]['points_by_guess'])
+        initial['known_movie_points'] = len(point_queue[this_user.username]['points_by_movie_known'])
+        initial['unseen_movie_points'] = len(point_queue[this_user.username]['points_by_movie_unseen'])
 
-        form.instance.correct_guess_points = point_queue[this_user.username]['points_by_guess']
-        form.instance.known_movie_points = point_queue[this_user.username]['points_by_movie_known']
-        form.instance.unseen_movie_points = points_queue[this_user.username]['points_by_movie_unseen']
-
-
-        # test this:
-        #form.save(commit=False)    # do not actually update database until it's reviewed? will this still display?
-        form.save()
-        return form
-
+        return initial
 
 
     def form_valid(self, form):
@@ -468,11 +490,30 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
         return reverse('movies_conclude_round', kwargs={'pk': self.object.game_round.pk})
 
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-# view for updating the overall GameRound object
+        point_queue = request.session['point_queue']
+
+        this_user_name = self.object.user.username
+
+        this_users_points = point_queue[this_user_name]
+
+        context['user_points'] = this_users_points
+        
+        return context
+
+
+
+
+
+# view for updating the overall GameRound object  -- can you merge this into the existing EditRound view ? seems
+# weird to have two UpdateViews that work on the same object... can you 
+
 class CommitGameRoundView(LoginRequiredMixin, UpdateView):
     model = GameRound
-    template = 'movie/commit_game_round.html'
+    template_name = 'movies/commit_game_round.html'
+    context_object_name = 'game_round'
     #success_url = reverse_lazy('movies:conclude_round', kwargs={'pk': self.object.pk})
 
     fields = ['date_finished', 'winner', 'participants', 'round_completed']
@@ -480,17 +521,16 @@ class CommitGameRoundView(LoginRequiredMixin, UpdateView):
     login_url = 'login'
 
 
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
+    def get_initial(self):
+        initial = super().get_initial()
 
-        winner_name = self.request.sessions['winner_name']
+        winner_name = self.request.session['winner_name']
 
-        winner = User.objects.get(name__icontains=winner_name)
+        winner = User.objects.get(username__icontains=winner_name)
 
-        form.instance.winner = winner
+        initial['winner'] = winner
 
-        form.save()
-        return form
+        return initial
 
 
     def form_valid(self, form):
@@ -726,7 +766,7 @@ class CreateRoundView(LoginRequiredMixin, CreateView):
 # the object AFTER it is saved, but before the redirect. That's why the format of this is different
 # than the other 'standard' form_valid methods used. Another good example is in the NoirDB User registration
 # view. There are two possible approaches as documented on SO thread: 
-# "Django CreateView: How to perform action upon save"
+# "Django CreateView: How to perform action upon save";
   
     # no longer doing this, for now; round number is simply entered on creation form.
     # def form_valid(self, form):
@@ -750,17 +790,6 @@ class TrophiesView(ListView):
     model = Trophy
     template_name = 'movies/trophies.html'
     context_object_name = 'trophies'
-
-
-    
-# TO DO
-# you need an admin page that only you and john will use, on which you can:
-# add movies
-# add rounds
-# edit rounds
-# add trophies
-# edit trophies
-# I don't want a link up top, though
 
 
 
