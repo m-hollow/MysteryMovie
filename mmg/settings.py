@@ -152,6 +152,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # My settings
 LOGIN_URL = 'login'   # used by django to redirect to login when @login_required gets unauthorized access
 
-#LOGOUT_REDIRECT_URL = 'movies:index'  # using 'next' in href tag should make this unnecessary
+LOGIN_REDIRECT_URL = 'movies:index'   # same as below
+LOGOUT_REDIRECT_URL = 'movies:index'  # using this now because using 'next' was messing up w/ sessions variable
 
 

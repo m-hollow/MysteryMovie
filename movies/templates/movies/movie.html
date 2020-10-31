@@ -37,6 +37,10 @@
     This movie was chosen by another user, phew. </p>
   {% endif %}
 
+<!-- note: get_ and _display are prepended / appended to the actual field names below, because
+    this is how you display the 'choices' option when the Model field has choices= defined for
+    a field. -->
+
   <ul class="pl-0" style="list-style-type:none">
       <li>Seen Previously: <span class="float-right">{{ user_movie_details.get_seen_previously_display }}</span></li>
       <li>Heard of Before: <span class="float-right">{{ user_movie_details.get_heard_of_display }}</span></li>

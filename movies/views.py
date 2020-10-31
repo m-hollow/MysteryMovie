@@ -270,21 +270,33 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # Note: the dict returned by this function has sorted the key-value pairs (participant, points) in order
         # from high (winner) to low. This will be userful later when using this dict to update the actual database
         # records.
+        # IMPORTANT NOTE: we can't simply assign ranking from 1 - finish for the results in here, becuase there may
+        # be duplicate scores, and we have to delve deeper to figure out who 'wins' in such a case, and then 
+        # further sort from there, pushing ranks down as we go....
         total_points_by_participant = self.total_points_dict_builder(point_queue)
 
         # we won't use key=dict.get or itemgetter to retrieve winning key, because that wouldn't account for ties;
         # determine the highest score in the dictionary
-        winning_score = max(total_points_by_participant.values())
+        gold_winning_score = max(total_points_by_participant.values())
+
+        # doing some janky python work so we can extract 2nd and 3rd highest scores without errors
+        # if round_participants.count() >= 3:
+        #     all_unique_scores = sorted(set(list(total_points_by_participant.values())), reverse=True)
 
         # retrieve all keys that had that score
-        winning_names = [name for name, value in total_points_by_participant.items() if value == winning_score]
+        gold_winning_names = [name for name, value in total_points_by_participant.items() if value == gold_winning_score]
 
         # get the actual object of the winner(s) and store them in a list:
-        winners = []
+        gold_winners = []
 
-        for name in winning_names:
-            winner_object = User.objects.get(username__icontains=name)
-            winners.append(winner_object)
+        # note the we are retreiving actual user objects right here, and then using them throughout, up until we store data from 
+        # them in request.session, which cannot hold class objects...
+        for name in gold_winning_names:
+            gold_winner_object = User.objects.get(username__icontains=name)
+            gold_winners.append(gold_winner_object)
+
+        # 'gold winners' here means multiple people had the same max score; until ranked by other criteria, they are all
+        # 'gold'....
 
         # if there is a tie, determine single winner by average movie rating;
         # figure out how to refactor this as a query using aggregate Max; this feels like a very long route that could
@@ -293,33 +305,59 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # it's a deep search, becuase it goes User > Movie choice > UserMoveDetail objects > rating field average
         # you could combine the aggregate Avg with the order_by function, and then extract the first() from those results...
 
-        if len(winners) > 1:   # can we do .count instead on the list we created, since it contains records?
-            winner_tuples = []
-            for winner in winners:
+        if len(gold_winners) > 1:   # can we do .count instead on the list we created, since it contains records?
+            gold_winner_tuples = []
+            for winner in gold_winners:
                 # thing to verify here is: can we use *both* a standard lookup + a deeper lookup together in the same get()...
                 winner_movie = winner.related_movies.get(game_round=self.object, usermoviedetail__is_user_movie=True)
                 average_rating = winner_movie.average_rating
-                winner_tuples.append((winner, average_rating))
+                gold_winner_tuples.append((winner, average_rating))
 
-            winner = self.return_winner_from_tie(winner_tuples)
+            # how to assign to an arbitrary number of winners when we don't know how many tied?
+            gold_winner, silver_winner, bronze_winner = self.return_winners_from_tie(gold_winner_tuples)
 
         else:
-            winner = winners[0]
+            gold_winner = gold_winners[0]
+            silver_winner = None
+            bronze_winner = None       # we need these values so we can check against them later to determine full ranking
 
-        # you need to package the participants, sorted by high to low winning results (points)
-        # so they display in that order in the template
 
-        # add logic to determine ONE winner if multiple have same point total;
-        # go by movie ratings on their movie
+        if silver_winner:
+            silver_winner_name = silver_winner.username
+        else:
+            silver_winner_name = ''         # will be checked against for determining rest of ranking order
+        if bronze_winner:
+            bronze_winner_name = bronze_winner.username
+        else:
+            bronze_winner_name = ''
 
+        # note that silver and bronze as named above are NOT the users with 2nd and 3rd highest point totals !! rather, they
+        # are users, if applicable, who TIED with the first place winner but received 2nd or 3rd place based on fallback crtiteria,
+        # which is avg rating of their movie choice.
+
+        # we need one, clean dataset of users and final ranking + total point, average movie rating (per user movie choice) that
+        # we can display results from; but remember, we are just in 'preliminary' land here, the db hasn't been udpated yet, this is
+        # all python session data.... final display MUST be from updated db records, NOT from session data (it won't even be available
+        # for most users!)
+
+        # PROBLEM: if only session data contains FULL ranking, but final results are printed from URD objects, won't you have
+        # to do all the sorting / ranking logic all over again when parsing the URD objects? isn't that messy / inefficient, 
+        # since you are doing so much sorting / ranking on the session data ?
+        # ANSWER: we need to create that 'complete results' data, and then meaningfully apply it so we can easily
+        # show the results of a completed round at any time; this might mean additional db tables or some tinkering with
+        # existing ones.
 
         # remember that the key in point_queue is just a string of the p's name, NOT the p object itself. change this?
 
-        self.request.session['winner_name'] = winner.username
+        self.request.session['gold_winner_name'] = gold_winner.username
+        self.request.session['silver_winner_name'] = silver_winner_name
+        self.request.session['bronze_winner_name'] = bronze_winner_name
         self.request.session['point_queue'] = point_queue
         self.request.session['total_points_by_participant'] = total_points_by_participant
 
-        context['winner'] = winner
+        context['gold_winner_object'] = gold_winner
+        context['silver_winner_object'] = silver_winner
+        context['bronze_winner_object'] = bronze_winner
         context['round_participants'] = round_participants      # sort these by rank; thing is, this view is 'prelim' results...
         context['user_round_details'] = user_round_details
         context['round_movies'] = round_movies                  # do we actually need this? is it used?
@@ -327,9 +365,19 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         return context
 
-    def return_winner_from_tie(self, tuple_list):
-        winning_tuple = max(tuple_list, key=lambda x : x[1])
-        return winning_tuple[0]
+
+    def return_winners_from_tie(self, tuple_list):
+        
+        winning_tuples = sorted(tuple_list, key=lambda x : x[1], reverse=True)
+        
+        # return tuples for gold and silver, bronze will be assigned None
+        if len(winning_tuple) == 2:
+            return winning_tuple[0], winning_tuple[1], None
+
+        # return tuples for gold, silver and bronze
+        elif len(winning_tuple) > 2:
+            return winning_tuple[0], winning_tuple[1], winning_tuple[2]
+
 
 
     def total_points_dict_builder(self, point_queue):
@@ -348,7 +396,6 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         final_dict = {k: v for k, v in sorted(total_point_dict.items(), key=lambda x: x[1], reverse=True)}
 
-
         return final_dict
 
 
@@ -361,18 +408,20 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         participant_umds = [movie.usermoviedetail_set.get(user=participant) for movie in round_movies]
 
+
         for umd in participant_umds:
             user_that_chose_movie = UserMovieDetail.objects.get(movie=umd.movie, is_user_movie=True).user
 
-            if umd.user_guess == user_that_chose_movie:
+            if umd.user_guess == user_that_chose_movie:   # can't compare against username, because in some cases value will be None (user record for movie they chose)
                 point_dict = {
                     'point_value': 1,
-                    'point_string': '+1  Correctly guessed that {} chose {}'.format(user_that_chose_movie.username, umd.movie.name)
+                    'point_string': '+1  Correctly guessed that {} chose {}'.format(umd.user_guess.username, umd.movie.name)
                 }
 
                 points_by_guess.append(point_dict)
 
         return points_by_guess
+
 
 
     def calculate_movie_points(self, participant):
@@ -431,12 +480,11 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 class CommitUserRoundView(LoginRequiredMixin, UpdateView):
     model = UserRoundDetail
     template_name = 'movies/commit_user_round.html'
-    context_object_name = 'user_round_detail'
+    context_object_name = 'urd_object'
 
-    fields = ['correct_guess_points', 'known_movie_points', 'unseen_movie_points', 'finalized_by_admin']
+    fields = ['correct_guess_points', 'known_movie_points', 'unseen_movie_points', 'liked_movie_points', 'disliked_movie_points', 'finalized_by_admin']
 
     login_url = 'login'
-
 
     # note that you could use get_initial or get_object here
     # def get_object(self):
@@ -445,6 +493,10 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
     #     obj.save(commit=False)  # we don't want anything committed until form_valid is called to submit & save object
     #                             # question: could we skip saving altogether here? would it still display?
 
+
+    # per my research, it also seems you can override get_form_kwargs for the same result; get_form_kwargs appears
+    # to use the data in get_initial, so it's accomplishing the same task, just a little later in the overall 
+    # process
 
     # only need this one OR get_object; not both. note that this approach doesn't include any save() call, so it might
     # be overall cleaner / preferable, since we don't want to save until form_valid is called.
@@ -461,6 +513,8 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
         initial['correct_guess_points'] = len(point_queue[this_user.username]['points_by_guess'])
         initial['known_movie_points'] = len(point_queue[this_user.username]['points_by_movie_known'])
         initial['unseen_movie_points'] = len(point_queue[this_user.username]['points_by_movie_unseen'])
+        initial['liked_movie_points'] = len(point_queue[this_user.username]['points_by_movie_liked'])
+        initial['disliked_movie_points'] = len(point_queue[this_user.username]['points_by_movie_disliked'])
 
         return initial
 
@@ -487,24 +541,61 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
 
 
     def get_success_url(self):
-        return reverse('movies_conclude_round', kwargs={'pk': self.object.game_round.pk})
+        return reverse('movies:conclude_round', kwargs={'pk': self.object.game_round.pk})
 
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        point_queue = request.session['point_queue']
+        point_queue = self.request.session['point_queue']
+        total_points_by_participant = self.request.session['total_points_by_participant']
 
-        this_user_name = self.object.user.username
+        this_user_name = self.object.user.username # huge previous bug: you did self.request.user here, which is NOT the user you want
+        this_user_total_points = total_points_by_participant[this_user_name]  # this is just an int value
 
-        this_users_points = point_queue[this_user_name]
+        user_point_results = point_queue[this_user_name]
 
-        context['user_points'] = this_users_points
-        
+        user_points_by_guess = user_point_results['points_by_guess'] # this is a list of point dicts
+
+        # I need to build a new dict to contain all the non-by-guess resuts, so I can loop through it
+        # in the tempalte without also dispaying the guess points; I'm only doing this because I couldn't
+        # find a way, in the template, to loop through the user_point_results while skipping the guess results
+        # (I want to display them separately):
+        user_points_by_movie = {}
+        user_points_by_movie['points_by_movie_known'] = user_point_results['points_by_movie_known']
+        user_points_by_movie['points_by_movie_unseen'] = user_point_results['points_by_movie_unseen']
+        user_points_by_movie['points_by_movie_liked'] = user_point_results['points_by_movie_liked']
+        user_points_by_movie['points_by_movie_disliked'] = user_point_results['points_by_movie_disliked']
+
+        context['user_points_by_guess'] = user_points_by_guess   # list of point dicts
+        context['user_points_by_movie'] = user_points_by_movie   # dict, key= point type, value=list of point dicts
+        context['point_total'] = this_user_total_points          # single int value
+        context['point_total_movies_only'] = (this_user_total_points - len(user_points_by_guess)) # single int value
+
         return context
 
 
+def build_complete_rankings(point_queue):
+    """builds and returns a definitive, final ranking data structure based on points and avg movie ratings per user"""
 
+    # this may render some of the logic in ConclueRoundView redundant / irrelevant; no prob, that view is HUGE anyway...
+
+    # you should build the complete unraked data structure first, including User > point total for round > avg movie rating,
+    # THEN perform the ranking on that datastructure based on the values it already contains.
+    # this is better than 'grabbing values as needed' for avg movie rating, etc, becuase that gets really messy
+    # this way, 1. you know exactly how many total participants there are, and thereby what the ranking number range
+    # will be; 2. you already have the fallback values to compare, no need to reach out for them; it's a fixed, finite
+    # structure that can just be evaluated as-is, and sorted accordingly, updating rank numbers as necessary, rather than
+    # a messy, constantly branching structure that may or may not do queries to access data based on previous conditions, etc.
+    # no need for that!
+    # one question: include a 'final_rank' value in the dictionary, or just SORT to determine ranking, e.g. the sorting
+    # of the p's in the list IS the ranking, so no need to track a number...or easier to track the numbers, since you can
+    # enforce uniqueness on them and update them as needed, rather than pushing things around in the list?
+    # wait...remember that dictionaries are UNORDERED so you may need to do some sorting with lambda and then 'rebuild'
+    # back into dictionary form with dictionary comprehensions....
+
+    # definitely need to answer: rank is a stored value that we modify vs. rank is implicit from ordering
+    
 
 
 # view for updating the overall GameRound object  -- can you merge this into the existing EditRound view ? seems
@@ -540,6 +631,39 @@ class CommitGameRoundView(LoginRequiredMixin, UpdateView):
 
     def get_success_url(self):
         return reverse('movies:conclude_round', kwargs={'pk': self.object.pk})
+
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        user_round_details = UserRoundDetail.objects.filter(game_round=self.object)
+
+        if ((UserRoundDetail.objects.filter(game_round=self.object, finalized_by_admin=False).count()) > 0 ):
+            all_data_reviewed = False
+        else:
+            all_data_reviewed = True
+
+        # can you think of a cleaner way to do this? all we want to do is set value to False if any ONE
+        # object in the user_round_details list has all_data_reviewed = False
+        # all_data_reviewed = True
+        # for urd in user_round_details:
+        #     if urd.finalized_by_admin == False:
+        #         all_data_reviewed = False
+        #     else:
+        #         pass
+
+        # BIG QUESTION: do you want to update the GameRound object based on values in request.session,
+        # or, since all the URD objects have been updated by this point, based on data in the actual URD database
+        # records? using request.session is more consistent with the 'preliminary / middle man' approach used
+        # above in CommitUserRoundView, but maybe that's not neccessary here, since we KNOW that this view cannot
+        # be run until all the URDs have been successfully updated?
+
+        context['user_round_details'] = user_round_details
+        context['all_data_reviewed'] = all_data_reviewed
+
+        return context
+
+
 
 
 
@@ -578,7 +702,7 @@ class MovieDetail(LoginRequiredMixin, DetailView):
 
         # we simply build the form we want here, and pass it in the context; this works, even though this CBV is a 
         # DetailView, not an edit view. When the form is processed, a different view will be called, process_details.
-        form = UserMovieDetailForm()
+        form = UserMovieDetailForm(current_user=self.request.user)
         #form.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=self.object.game_round) # this works! note: this is equivalent to movie.game_round
 
         results_ready = False
@@ -607,7 +731,11 @@ def process_details(request, movie_pk):
         # game_round is cached by select_related above, so this line does not perform a query on the db itself:
         game_round = movie.game_round    # connects to a single specific game_round instance
 
-        form = UserMovieDetailForm(data=request.POST)
+        # this doesn't really 'need' the current_user argument, as that is only used for how the form is displayed,
+        # and this function is only a POST request, after the data is submitted; but, since the form constructor
+        # is being called, and the __init__ method of the form includes an assigment using the current_user value,
+        # you need to provide it here simply because its expected.
+        form = UserMovieDetailForm(data=request.POST, current_user=request.user) 
 
         if form.is_valid():
             umd_object = form.save(commit=False)
@@ -639,13 +767,16 @@ def update_details(request, umd_pk):
 
     if request.method != 'POST':
         # initial GET request
-        form = UserMovieDetailForm(instance=umd_object) # create the form, using data from existing object
+        # adding current_user keyword argument to match behavior of get_form_kwargs method of CBV version of this;
+        # this is used in the ModelForm to exclude the user, see: UserMovieDetailForm
+        # note: you also have to pass this to the From in the Movie detail view!
+        form = UserMovieDetailForm(instance=umd_object, current_user=request.user) # create the form, using data from existing object
         # filter users so only users that are participating in current round are displayed in guess choice:
         #form.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=movie.game_round) # works!
 
     else:
         # POST request
-        form = UserMovieDetailForm(instance=umd_object, data=request.POST)  # UserMovieDetailForm(request.POST, instance=umd_object) is also OK
+        form = UserMovieDetailForm(instance=umd_object, data=request.POST, current_user=request.user)  # UserMovieDetailForm(request.POST, instance=umd_object) is also OK
         if form.is_valid():
             form.save()
 
@@ -664,6 +795,14 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
     form_class = UserMovieDetailForm
 
     login_url = 'login' # used by LoginRequiredMixin
+
+
+    # using this to attach the user to the kwargs received by the form, so the form has access to the current
+    # user, which we will use to exclude the user from the user_guess queryset
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs.update({'current_user': self.request.user})
+        return kwargs
 
 
     def get_success_url(self):

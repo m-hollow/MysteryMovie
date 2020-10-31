@@ -14,15 +14,19 @@
 
 {% block content %}
 
+{% if not all_data_reviewed %}
+  <p>You have not reviewed and submitted results for all participants in the round.<br>
+  Please return to previous screen and submit scores for all participants.</p>
+{% else %}
 
-
-<form method="post" action="" class="form">
-  {% csrf_token %}
-  {% bootstrap_form form %}
-  <br>
-  <button class="btn btn-secondary" type="submit">Submit Round Details</button>
-</form>
-
+    <form method="post" action="" class="form">
+      {% csrf_token %}
+      {% bootstrap_form form %}
+      <br>
+      <button class="btn btn-secondary" type="submit">Submit Round Details</button>
+    </form>
+    
+{% endif %}
 
 <br>
 <a href="{% url 'movies:conclude_round' game_round.pk %}"><b><span class="float-right">Go Back</b></span></a></p>

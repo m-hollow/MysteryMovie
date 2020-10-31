@@ -26,19 +26,19 @@ class UserMovieDetailForm(forms.ModelForm):
             'comments': forms.Textarea(attrs={'rows': 1}),
         }
 
+    # order is important here. super() does NOT expect an argument to arrive from the constructor,
+    # e.g. current_user. You need to pop current_user *before* the call to super, not after.
+    # see the stack overflow answer to your question on CBVs; the provided example has the kwargs.pop
+    # occurring in between the __init__ definition and the super() call. 
+    # point being: you are popping the current_user argument from the kwargs in -your- init definition,
+    # not from the kwargs in the super() -- super isn't expecting it!
     def __init__(self, *args, **kwargs):
+        current_user = kwargs.pop('current_user')  # we put this here in the view, in get_form_kwargs
         super().__init__(*args, **kwargs)
-
         # need this for grabbing the queryset assigned below
         current_round = GameRound.objects.filter(active_round=True).last()
+        self.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=current_round).exclude(username=current_user.username)
 
-        self.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=current_round)
-
-
-# class UserRoundDetailForm(forms.ModelForm):
-#     class Meta:
-#         model = UserRoundDetail
-#         fields = []
 
 
 

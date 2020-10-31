@@ -17,7 +17,8 @@
     {{ form|crispy }}
     <button class="btn btn-secondary" type="submit">Login</button>
 
-    <input type="hidden" name="next" value="{{ request.GET.next }}">
+    <!-- no longer using this approach, as it messed with the sessions variable -->
+    <!-- <input type="hidden" name="next" value="{{ request.GET.next }}"> -->
 </form>
 
 {% endblock content %}

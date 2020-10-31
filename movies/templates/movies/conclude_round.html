@@ -14,7 +14,15 @@
 
 <p>Preliminary Results of Round {{ game_round.round_number }}</p>
 
-<h5>Round Winner: <b>{{ winner.username }}</b></h5>
+<h5>Gold Winner: <b>{{ gold_winner_object.username }}</b></h5>
+
+{% if silver_winner_object %}
+<h3>Silver: <b>{{ silver_winner_object.username }}</b></h3>
+{% endif %}
+
+{% if bronze_winner_object %}
+<h4>Bronze: <b>{{ bronze_winner_object.username }}</b></h4>
+{% endif %}
 
 <br>
 
@@ -27,7 +35,7 @@
       <li><a href="{% url 'movies:commit_user_round' urd.pk %}">{{ urd.user.username }}</a>
         <span class="float-right">
           {% if urd.finalized_by_admin %}
-          <i>Done!</i>
+          <small><i>Done!</i></small>
           {% else %}
           <small>Not Submitted</small>
           {% endif %}
@@ -36,26 +44,19 @@
     </ul>
 
     <br>
-
-    <p class="mb-2"><b>Admin Instructions:</b></p>
-    <p>
-    • Click a user name to review & submit their scores.<br>
-    • Once all users are marked <i>done</i>, you can submit the Round below.
-   </p>
   
-
-   <br>
-
     <p class="border-bottom mb-2"><b>Finalize Round Results</b></p>
 
     <a href="{% url 'movies:commit_game_round' game_round.pk %}">Game Round {{ game_round.round_number }}</a>
       <span class="float-right"><small>Not Submitted</small></span>
 
    <br>
-   <br>
-   <p><b><i>Note:</i></b><br>
-   Once the Round is submitted, the website will update to display
-   the finalized results of the round (replacing the 'in progress' details).</p>
+    <p class="mb-2"><b>Admin Instructions:</b></p>
+    <p>
+    • Click a user name to review & submit their scores.<br>
+    • Once all users are marked <i>done</i>, you can submit the Round below.
+   </p>
+
 
 
 {% else %}

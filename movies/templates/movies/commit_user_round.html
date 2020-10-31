@@ -7,41 +7,42 @@
 
 
 {% block page_header %}
-  <h2>Commit User Round Details</h2>
+  <h3>Review Round {{ urd_object.game_round.round_number }} Scores - {{ urd_object.user.username }}</h2>
 {% endblock page_header %}
 
 
 
 {% block content %}
 
+<p>• Points for Correct Guesses - {{ user_points_by_guess|length }} Total</p>
+<ul class="pl-3" style="list-style-type:none">
+  {% for point_dict in user_points_by_guess %}
+  
+    <li>{{ point_dict.point_string }}</li>
 
-<!-- loop through and printout the point award details for the User here, same as will
-  be shown when final results are displayed; admin can review them for any issues and use
-  that data to verify form data (though it will be identical) 
+  {% empty %}
+  <li>This user did not correctly guess any Movies to their User!</li>
+  {% endfor %}
 
-  where will the info come from ? the form pre-submitting? the point_queue as stored in request.session?
--->
+</ul>
 
-<!-- this will be different now because it's only for ONE participant, not looping through all of them! 
-  that said, this structure will be important for showing results for Al Users on the Results page
-  or index page, if you show them there...-->
+<p>• Points for Movie - {{ point_total_movies_only }} Total</p>
 
-  {% for parp, results in point_queue.items %}
-  <p class="border-bottom">{{ parp }}</p>
-  <ul>
-    {% for point_type, points_list in results.items %}
-    <li>{{ point_type }}</li>
-      <ul>
-      {% for point_dict in points_list %}
-        <li>point_dict.point_string</li>
-      {% endfor %}
-      </ul>
+<ul class="pl-3" style="list-style-type:none">
+  {% for point_type, point_list in user_points_by_movie.items %}
+    {% for point_dict in point_list %}
+      <li>{{ point_dict.point_string }}</li>
     {% endfor %}
-  </ul>
-{% endfor %}
+  {% empty %}
+  <li>This user did not earn any points for their movie, yikes!</li>
+  {% endfor %}
+</ul>
+
+<br>
+<p>Total Points for Round: {{ point_total }}</p>
 
 
-
+<br>
 
 <form method="post" action="" class="form">
   {% csrf_token %}
@@ -51,21 +52,8 @@
 </form>
 
 <br>
-<a href="{% url 'movies:conclude_round' user_round_detail.game_round.pk %}"><b><span class="float-right">Go Back</b></span></a></p>
+<a href="{% url 'movies:conclude_round' urd_object.game_round.pk %}"><b><span class="float-right">Go Back</b></span></a></p>
 
 {% endblock content %}
 
-
-
-<!-- for reference, the structure of the point queue object:
-
-point_queue[participant.username] = {
-    'points_by_guess': [],
-    'points_by_movie_known': [],
-    'points_by_movie_unseen': [],
-    'points_by_movie_liked': [],
-    'points_by_movie_disliked': [],
-}
-
--->
 
