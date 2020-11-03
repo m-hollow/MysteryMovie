@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail)
+from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank)
 
 admin.site.register(GameRound)
 admin.site.register(Movie)
@@ -9,6 +9,7 @@ admin.site.register(UserProfile)
 admin.site.register(UserMovieDetail)
 admin.site.register(UserRoundDetail)
 admin.site.register(TrophyProfileDetail)
+admin.site.register(RoundRank)
 
 
 

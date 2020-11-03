@@ -11,7 +11,11 @@
 
 {% block page_header %}
   {% if current_round %}
-    <h2>Current Round -<b>&nbsp;{{ current_round.round_number }}</b></h2>
+    {% if not current_round.round_completed %}
+      <h2>Current Round -<b>&nbsp;{{ current_round.round_number }}</b></h2>
+    {% else %}
+      <h2>Round {{ current_round.round_number }} is Complete! <span class="float-right"><a href="{% url 'movies:results' %}"><i><small>RESULTS HERE</small></i></a></span></h2>
+    {% endif %}
   {% else %}
     <h2>There is no active Round.</h2>
   {% endif %}
@@ -34,11 +38,14 @@
 {% for movie in movies %}
   <li><a href="{{ movie.get_absolute_url }}">{{ movie.name }}</a><span class="float-right">{{ movie.date_watched|date:'M d, Y' }}</span></li>
 {% empty %}
-  <li>There are currently no movies in the database.</li>
+  <li>There are no movies in the current round.</li>
 {% endfor %}
 </ul>
 
-<a href="{% url 'movies:add_movie' %}"><span class="float-right"><b>+ Add Movie</b></span></a>
+{% if not current_round.round_completed %}
+  <a href="{% url 'movies:add_movie' %}"><span class="float-right"><b>+ Add Movie</b></span></a>
+{% endif %}
+
 <br>
 <br>
 
@@ -50,7 +57,7 @@
 
 <ul class="pl-0" style="list-style-type:none">
 {% for pair in current_round_pairs %}
-  <li>{{ pair.0.username }}<span class="float-right">{{ pair.1.total_points }} points</span></li>
+  <li>{{ pair.0.username }}</li>
 {% empty %}
   <li>The current round has no Participants.</li>
 {% endfor %}

@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (IndexPageView, MovieDetail, MembersView, AddMovieView, 
-    process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundsView, ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, SettingsView)
+    process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundsView, ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, SettingsView, UserResultsView)
 
 app_name = 'movies'
 urlpatterns = [
@@ -28,7 +28,10 @@ urlpatterns = [
     path('results/', ResultsView.as_view(), name='results'),
     path('old_rounds/', OldRoundsView.as_view(), name='old_rounds'),
     path('settings/', SettingsView.as_view(), name='settings'),
+    path('user_results/', UserResultsView.as_view(), name='user_results'),
 ]
+
+
 
 
 

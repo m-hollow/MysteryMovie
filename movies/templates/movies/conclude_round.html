@@ -14,15 +14,8 @@
 
 <p>Preliminary Results of Round {{ game_round.round_number }}</p>
 
-<h5>Gold Winner: <b>{{ gold_winner_object.username }}</b></h5>
 
-{% if silver_winner_object %}
-<h3>Silver: <b>{{ silver_winner_object.username }}</b></h3>
-{% endif %}
 
-{% if bronze_winner_object %}
-<h4>Bronze: <b>{{ bronze_winner_object.username }}</b></h4>
-{% endif %}
 
 <br>
 
@@ -51,17 +44,19 @@
       <span class="float-right"><small>Not Submitted</small></span>
 
    <br>
+   <br>
+   <br>
     <p class="mb-2"><b>Admin Instructions:</b></p>
     <p>
     • Click a user name to review & submit their scores.<br>
-    • Once all users are marked <i>done</i>, you can submit the Round below.
+    • Once all users are marked <i>done</i>, review and submit the Game Round.
    </p>
 
 
 
 {% else %}
   <p>The current round, number {{ game_round.round_number }}, has already been completed by Admin.</p>
-  <p>Results are displayed on index, movie and results pages.</p>
+
 
 {% endif %}
 
@@ -69,24 +64,3 @@
 {% endblock content %}
 
 
-
-
-
-
-<!--  looping through the point_queue to display point results by type, per participant:
-
-  {% for parp, results in point_queue.items %}
-  <p class="border-bottom">{{ parp }}</p>
-  <ul>
-    {% for point_type, points_list in results.items %}
-    <li>{{ point_type }}</li>
-      <ul>
-      {% for point_dict in points_list %}
-        <li>point_dict.point_string</li>
-      {% endfor %}
-      </ul>
-    {% endfor %}
-  </ul>
-{% endfor %}
-
--->

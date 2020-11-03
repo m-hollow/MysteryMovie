@@ -41,6 +41,8 @@
     this is how you display the 'choices' option when the Model field has choices= defined for
     a field. -->
 
+<p class="border-bottom pb-2 mb-2">Your Details</p>
+
   <ul class="pl-0" style="list-style-type:none">
       <li>Seen Previously: <span class="float-right">{{ user_movie_details.get_seen_previously_display }}</span></li>
       <li>Heard of Before: <span class="float-right">{{ user_movie_details.get_heard_of_display }}</span></li>
@@ -58,7 +60,7 @@
 
   <br>
 
-  <p><a href="{% url 'movies:update_details' user_movie_details.pk %}"><span class="float-right"><b>Edit Details</b></span></a></p>
+  <p><span class="float-right"><a href="{% url 'movies:update_details' user_movie_details.pk %}"><b>Edit Details</b></a></span></p>
 
 
 <!-- do a bool check here to see if the round that this movie belongs to is complete or not, if it is, display the results -->
@@ -67,13 +69,27 @@
         <br>
         <br>
         <div class="border-bottom">
-          <h2>Results...</h2>
+          <h5>Movie Details - Round Completed</h5>
         </div>
         <br>
+        <ul class="pl-0" style="list-style-type:none">
+            <li>This movie was chosen by:<span class="float-right"><b>{{ user_that_chose_movie.username }}</b></span></li>
+            <li>The average rating for this movie was:<span class="float-right"><b>{{ movie_avg_rating }}</b></span></li>
+
+            <li>Users who correctly blamed <b>{{ user_that_chose_movie.username }}</b>:<span class="float-right">...</span></li>
+            <br>
+            <li># of Users who had already seen it:</li>
+            <li># of Users who had never heard of it:</li>
+        </ul>
+
+
     {% else %}
 <!--     <br>
     <p>Your results for this movie will be posted after the Round is complete.</p> -->
     {% endif %}
+
+<br>
+<span class="float-right"><a href="{% url 'movies:index' %}"><b>Go Back</b></span></a></p>
 
 {% endif %}
 

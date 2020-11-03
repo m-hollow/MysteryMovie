@@ -44,6 +44,12 @@ class GameRound(models.Model):
         super().save(*args, **kwargs)
 
 
+
+class RoundRank(models.Model):
+    rank_int = models.PositiveSmallIntegerField(default=0, unique=True)
+    rank_string = models.CharField(max_length=100, unique=True)
+
+
 class Trophy(models.Model):
     name = models.CharField(max_length=200)
     condition = models.CharField(max_length=1000)
@@ -61,14 +67,21 @@ class UserRoundDetail(models.Model):
 
     # Extra fields
     winner_bool = models.BooleanField(default=False) # flip to True for record containing User who won the Round
+
     correct_guess_points = models.PositiveSmallIntegerField(default=0, null=True)
     known_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     unseen_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     liked_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     disliked_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
 
-    trophy_points = models.PositiveSmallIntegerField(default=0, null=True)
+    total_points = models.PositiveSmallIntegerField(default=0, null=True)
+    
+    rank = models.ForeignKey(RoundRank, on_delete=models.CASCADE, null=True)
 
+    # the average rating of the movie that the participant chose for this round
+    movie_average_rating = models.DecimalField(default=0.0, null=True, max_digits=2, decimal_places=1)
+
+    trophy_points = models.PositiveSmallIntegerField(default=0, null=True)
     trophies_won = models.ManyToManyField(Trophy, verbose_name='Trophies Won This Round', 
         related_name='related_user_round_details')
 
@@ -121,8 +134,8 @@ class Movie(models.Model):
     @property
     def average_rating(self):
         # aggregate returns a dict
-        average_dict = self.usermoviedetail_set.aggregate(avg_rating=Avg(star_rating))
-        return average_dict['avg_rating']
+        average_dict = self.usermoviedetail_set.aggregate(avg_rating=Avg('star_rating'))  # note: quotes required on named field!!
+        return round(average_dict['avg_rating'], 1) # round the average to one decimal place
 
 
     class Meta:

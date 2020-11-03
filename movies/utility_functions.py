@@ -1,6 +1,6 @@
 from django.utils.timezone import make_aware
 from datetime import date
-from .models import Trophy
+from .models import Trophy, RoundRank
 
 def reformat_date(date_string):
     """
@@ -24,6 +24,18 @@ def reformat_date_two(date_string):
     aware_object = make_aware(date_object)
 
     return aware_object
+
+
+def create_ranks():
+
+    int_list = list(range(1,11))
+    string_list = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eigth', 'Ninth', 'Tenth']
+
+    for value, string_val in zip(int_list, string_list):
+        new_rank = RoundRank(rank_int=value, rank_string=string_val)
+        new_rank.save()
+
+
 
 
 def add_trophies():

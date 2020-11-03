@@ -19,13 +19,15 @@
   Please return to previous screen and submit scores for all participants.</p>
 {% else %}
 
+
+
     <form method="post" action="" class="form">
       {% csrf_token %}
       {% bootstrap_form form %}
       <br>
-      <button class="btn btn-secondary" type="submit">Submit Round Details</button>
+      <button class="btn btn-secondary" type="submit">Conclude This Round</button>
     </form>
-    
+
 {% endif %}
 
 <br>

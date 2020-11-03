@@ -7,7 +7,11 @@
 
 
 {% block page_header %}
-  <h2>Results</h2>
+  <h2>Results - Round {{ current_round.round_number }}
+    {% if not current_round.round_completed %}
+    &nbsp;<i><small>in progress</small></i>
+    {% endif %}
+  </h2>
 {% endblock page_header %}
 
 
@@ -16,7 +20,7 @@
 
 {% if active_round_exists %}
   
-  {% if not round_concluded %}
+  {% if not round_concluded %}<!-- this is where we display that status of user detail submissions for an in-progress round -->
 
       <ul class="pl-0" style="list-style-type:none">
       <li>Round<small><i>&nbsp;(in progress)</i></small>:
@@ -35,7 +39,7 @@
       <ul class="pl-0" style="list-style-type:none">
       {% for movie_name, status in round_progress_dict.items %}
         <li><b>{{ movie_name }}</b></li>
-          <ul class="pl-4" style="list-style-type:none">
+          <ul class="pl-3" style="list-style-type:none">
             <li>Details Received:<span class="float-right">
             {% for participant in status.submitted %}
               &nbsp;<small>{{ participant.username }}</small>
@@ -44,7 +48,7 @@
             {% endfor %}
             </span></li>
         
-            <li>Need details From:<span class="float-right">
+            <li>Need Details From:<span class="float-right">
             {% for participant in status.incomplete %}
               &nbsp;<small>{{ participant.username }}</small>
             {% empty %}
@@ -64,16 +68,46 @@
         {% endif %}
       {% endif %}
   
-  {% else %}
-    <p>The current round has concluded. Here are the results...</p>
+  {% else %} <!-- this is where the Round results are displayed in full -->
+  <h3 class="text-center">{{ current_round.winner.username }} &nbsp;Wins!</h3>
+  <br>
 
-    <p>Display results here...</p>
+  <h5 class="border-bottom pb-2 mb-4">Round {{ current_round.round_number }} Rankings
+    <span class='float-right'><small>Total Points / movie avg. rating</small></span></h5>
+
+  <ul class="pl-0" style="list-style-type:none">
+    {% for urd in user_round_details %}
+      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;{{ urd.user.username }}<span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
+    {% endfor %}
+  </ul>
+  
+  <br>
+
+  <h5 class="border-bottom pb-2 mb-4">Who Chose What ?<span class="float-right"><small>Responsible Party</small></span></h5>
+
+<!-- here is an exercise in seeing how much data we can access through related objects while in the template,
+    vs. packaging things up very literally / neatly in the view context for direct access. which is preferable??-->
+  <ul class="pl-0" style="list-style-type:none">
+  {% for pair in user_movie_pairs %}
+    <li>{{ pair.1.name }}<span class="float-right">{{ pair.0.username }}</span></li>
+  {% endfor %}
+  </ul>
+
+<br>
+
+<h5 class="border-bottom pb-2 mb-4">Trivia</h5>
+  <ul class="pl-0" style="list-style-type:none">
+    <li>Most Loathed Movie<span class="float-right">{{ most_hated_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
+    <li>Most Enjoyed Movie<span class="float-right">{{ most_enjoyed_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
+   </ul>
+
   {% endif %}
 
 {% else %}
   <p>There is no currently active round.</p>
 {% endif %}
 
+<br>
 <br>
 <p class="float-right"><a href="{% url 'movies:old_rounds' %}">Previous Rounds...</a></p>
 
