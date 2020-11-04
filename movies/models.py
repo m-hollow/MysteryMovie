@@ -104,7 +104,7 @@ class Movie(models.Model):
     # for 'existing rows' -- but there are no existing rows!
     game_round = models.ForeignKey(GameRound, default="", on_delete=models.CASCADE, related_name='movies_from_round')
 
-    # when is this getting set? are we using it at all? 
+    # when is this getting set? are we using it at all? IMPORTANT: I THINK YOU NEVER SET THIS, ANYWYERE; IT'S NOT USED...
     chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 
         related_name='chosen_movie', null=True, blank=True, verbose_name="Chosen By User")
 

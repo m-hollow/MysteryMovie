@@ -219,10 +219,12 @@ class ResultsView(TemplateView):
             details_received = None
 
 
-        # you still need to collect the old rounds, package them in context, print links to them
-        # in results template; all links will go to old_rounds.html and display old round results.
+        # get previous game round objects, to provide links to view their results at bottom of main Results page
+        previous_game_rounds = GameRound.objects.filter(active_round=False, round_completed=True)
 
         # weed through these and see what is / isn't actually getting used; I think round_movies is useless...
+        context['previous_game_rounds'] = previous_game_rounds
+
         context['active_round_exists'] = active_round_exists
         context['round_concluded'] = round_concluded
         context['current_round'] = current_round
@@ -244,14 +246,19 @@ class ResultsView(TemplateView):
 class UserResultsView(DetailView):
     model = UserRoundDetail
     template_name = 'movies/user_results.html'
-    context_object_name = user_round_details
+    context_object_name = 'user_round_details'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
         game_round = self.object.game_round
+        participant = self.object.user
+        participant_movie = participant.related_movies.get(game_round=game_round, usermoviedetail__is_user_movie=True)
+        movie_avg_rating = participant_movie.average_rating # this is a propery and can't (I think) be accessed by template
 
-
+        context['round_length'] = game_round.participants.all().count()
+        context['participant_movie'] = participant_movie
+        context['movie_avg_rating'] = movie_avg_rating
         context['game_round'] = game_round
         return context
 
@@ -606,7 +613,6 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
         return context
 
 
-
 # view for updating the overall GameRound object  -- can you merge this into the existing EditRound view ? seems
 # weird to have two UpdateViews that work on the same object... can you 
 
@@ -660,11 +666,51 @@ class CommitGameRoundView(LoginRequiredMixin, UpdateView):
 
 
 
+class OldRoundView(DetailView):
+    model = GameRound
+    template_name = 'movies/old_round_results.html'
+    context_object_name = 'game_round'
 
-class OldRoundsView(ListView):
-    queryset = GameRound.objects.filter(active_round=False)
-    template_name = 'movies/old_rounds.html'
-    context_object_name = 'game_rounds'
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        round_movies = self.object.movies_from_round.all()  # uses reverse manager defined in Movie model
+        round_participants = self.object.participants.all() 
+
+
+        user_round_details = UserRoundDetail.objects.filter(game_round=self.object).order_by('rank')
+
+        avg_ratings_list = [(movie.average_rating, movie) for movie in round_movies]
+
+        sorted_avg_ratings_list = sorted(avg_ratings_list, key=lambda x: x[0]) # is lambda neccessary? wouldn't it sort by first item in tuple anyway?
+
+        most_hated_movie = sorted_avg_ratings_list[0][1]
+        most_enjoyed_movie = sorted_avg_ratings_list[-1][1]
+
+        # need to package user objects with their chosen movie, to loop through to show who chose what
+        
+        user_movie_pairs = []
+        for participant in round_participants:
+            
+            p_movie = participant.related_movies.get(game_round=self.object, usermoviedetail__is_user_movie=True)
+
+            user_movie_pairs.append((participant, p_movie))
+
+
+        context['user_round_details'] = user_round_details
+
+
+        context['most_hated_score'] = sorted_avg_ratings_list[0][0]
+        context['most_enjoyed_score'] = sorted_avg_ratings_list[-1][0]
+
+        context['most_hated_movie'] = most_hated_movie
+        context['most_enjoyed_movie'] = most_enjoyed_movie
+        
+        context['user_movie_pairs'] = user_movie_pairs
+
+
+        return context
+
 
 
 

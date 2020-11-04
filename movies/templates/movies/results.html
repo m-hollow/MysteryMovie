@@ -23,7 +23,7 @@
   {% if not round_concluded %}<!-- this is where we display that status of user detail submissions for an in-progress round -->
 
       <ul class="pl-0" style="list-style-type:none">
-      <li>Round<small><i>&nbsp;(in progress)</i></small>:
+      <li>Round:
       <span class="float-right">{{ current_round.round_number }}</span>
       </li>
 
@@ -57,6 +57,8 @@
             </span></li>
           </ul>
       <br>
+      {% empty %}
+      <li>There aren't any Movies in this Round yet...</li>
       {% endfor %}
       </ul>
 
@@ -69,7 +71,9 @@
       {% endif %}
   
   {% else %} <!-- this is where the Round results are displayed in full -->
-  <h3 class="text-center">{{ current_round.winner.username }} &nbsp;Wins!</h3>
+
+<!--   <h3 class="text-center">{{ current_round.winner.username }} &nbsp;Wins!</h3> -->
+<h4 class="text-center"><b>{{ current_round.winner.username }}</b> Wins!</h4>
   <br>
 
   <h5 class="border-bottom pb-2 mb-4">Round {{ current_round.round_number }} Rankings
@@ -77,10 +81,12 @@
 
   <ul class="pl-0" style="list-style-type:none">
     {% for urd in user_round_details %}
-      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;{{ urd.user.username }}<span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
+      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.user.pk %}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
     {% endfor %}
   </ul>
   
+  <p>Click a name to see detailed Round Results for that user.</p>
+
   <br>
 
   <h5 class="border-bottom pb-2 mb-4">Who Chose What ?<span class="float-right"><small>Responsible Party</small></span></h5>
@@ -109,12 +115,18 @@
 
 <br>
 <br>
-<p class="float-right"><a href="{% url 'movies:old_rounds' %}">Previous Rounds...</a></p>
+<br>
 
-<!-- <br>
-<p class="border-bottom mb-2">Links to Results of Previous Rounds</p> -->
+<p class="border-bottom pb-2 mb-2">View Previous Rounds</p>
+<ul class="pl-0" style="list-style-type:none">
+  {% for game_round in previous_game_rounds %}
+    <li><a href="{% url 'movies:old_round_results' game_round.pk %}">Round {{ game_round.round_number }} Results</a></li>
+  {% empty %}
+  <li>There are no previous Rounds to display.</li>
+  {% endfor %}
+</ul>
 
-<!-- loop through old rounds here, each one printing as a link to old_rounds url -->
+
 
 {% endblock content %}
 

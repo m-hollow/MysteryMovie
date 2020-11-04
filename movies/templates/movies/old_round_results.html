@@ -1,0 +1,49 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+<title>Round {{ game_round.round_number }} Results</title>
+{% endblock title %}
+
+{% block page_header %}
+  <h2>Round {{ game_round.round_number }} Results</h2>
+{% endblock page_header %}
+
+
+{% block content %}
+
+<h4 class="text-center"><b>{{ game_round.winner.username }}</b> won this Round!</h4>
+<br>
+
+<h5 class="border-bottom pb-2 mb-4">Round {{ game_round.round_number }} Rankings
+    <span class='float-right'><small>Total Points / movie avg. rating</small></span></h5>
+
+  <ul class="pl-0" style="list-style-type:none">
+    {% for urd in user_round_details %}
+      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.user.pk %}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
+    {% endfor %}
+  </ul>
+  
+  <p><i>Click a user name above to see <b>detailed results</b> for that user.</i></p>
+
+  <br>
+
+  <h5 class="border-bottom pb-2 mb-4">Who Chose What ?<span class="float-right"><small>Responsible Party</small></span></h5>
+
+  <ul class="pl-0" style="list-style-type:none">
+  {% for pair in user_movie_pairs %}
+    <li>{{ pair.1.name }}<span class="float-right">{{ pair.0.username }}</span></li>
+  {% endfor %}
+  </ul>
+
+<br>
+
+<h5 class="border-bottom pb-2 mb-4">Trivia</h5>
+  <ul class="pl-0" style="list-style-type:none">
+    <li>Most Loathed Movie<span class="float-right">{{ most_hated_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
+    <li>Most Enjoyed Movie<span class="float-right">{{ most_enjoyed_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
+   </ul>
+
+
+
+{% endblock content %}

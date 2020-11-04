@@ -7,12 +7,28 @@
 
 
 {% block page_header %}
-
+<h4>Round {{ game_round.round_number }} Results - {{ user_round_details.user.username }}</h4>
 {% endblock page_header %}
 
 
-
 {% block content %}
+
+<ul class="pl-0" style='list-style-type:none'>
+
+  <li>Ranked:<span class="float-right">{{ user_round_details.rank.rank_string }}<small><i>&nbsp;&nbsp;of&nbsp;</i></small> {{ round_length }}</span></li>
+
+  <li>Total Points:<span class="float-right">{{ user_round_details.total_points }}</span></li>
+
+  <li>Movie Choice & Avg Rating:<span class="float-right">{{ participant_movie.name }} / {{ movie_avg_rating }}</span></li>
+
+  <li>Total Correct Movie + User Matches:<span class="float-right">{{ user_round_details.correct_guess_points }}</span></li>
+
+</ul>
+
+<br>
+<a href="{% url 'movies:old_round_results' game_round.pk %}"><b><span class="float-right">Go Back</b></span></a></p>
+
+
 
 
 
