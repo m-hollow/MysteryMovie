@@ -25,43 +25,64 @@
 
 {% block content %}
 
-<p>Started: 
+<!-- <p>Started: 
 {% if current_round %}
 {{ current_round.date_started }}
 {% else %}n/a
 {% endif %}
-&nbsp;&nbsp;&nbsp;&nbsp;Participants: {{ current_round_pairs|length }}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Movies Watched: {{ movies|length }}</p>
+&nbsp;&nbsp;&nbsp;&nbsp;Participants: {{ current_round_pairs|length }}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Movies Watched: {{ movies|length }}</p> -->
+
+
+<!-- note: for aligning the three p items hard left - center - hard right, the below approach works, which is interesting;
+this allows simple alignment of multiple items on the same align, spaced out, *without needing to use grid containers with columns
+and rows*. That's worth remembering. For more advanced stuff, create the grid container and rows / columns; but in a simple case like these
+three p tags, this seems to work fine. -->
+<!-- <div class="d-flex justify-content-around">  -->  <!-- note the spacing options here: -between and -around -->
+<!-- <p>Started: {{ current_round.date_started }}</p>
+<p>Participants: {{ current_round_pairs|length }}</p>
+<p>Movies Watched: {{ movies|length }}</p>
+</div> -->
 
 {% if current_round %}
-  <h4 class="border-bottom pb-2 mb-4">Movies</h4>
-  <ul class="pl-0" style="list-style-type:none">
-{% for movie in movies %}
-  <li><a href="{{ movie.get_absolute_url }}">{{ movie.name }}</a><span class="float-right">{{ movie.date_watched|date:'M d, Y' }}</span></li>
-{% empty %}
-  <li>There are no movies in the current round.</li>
-{% endfor %}
-</ul>
 
-{% if not current_round.round_completed %}
-  <a href="{% url 'movies:add_movie' %}"><span class="float-right"><b>+ Add Movie</b></span></a>
-{% endif %}
+    <p>Date Started:<span class="float-right">{{ current_round.date_started }}</span><br>
+    {% if current_round.round_completed %}
+    Date Completed:<span class="float-right">{{ current_round.date_finished }}</span><br>
+    {% endif %}
+    # Participants:<span class="float-right">{{ current_round_pairs|length }}</span><br>
+    # Movies Watched:<span class="float-right">{{ movies|length }}</span></p>
 
-<br>
-<br>
+    <br>
+
+    <h4 class="border-bottom pb-2 mb-4">Movies <span class="float-right pt-2" style="font-size: 14px;">date watched</span></h4>
+    <ul class="pl-0" style="list-style-type:none">
+    {% for movie in movies %}
+      <li><a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a><span class="float-right">{{ movie.date_watched|date:'M d, Y' }}</span></li>
+    {% empty %}
+      <li>There are no movies in the current round.</li>
+    {% endfor %}
+    </ul>
+
+    {% if not current_round.round_completed %}
+      <a href="{% url 'movies:add_movie' %}"><span class="float-right"><b>+ Add Movie</b></span></a>
+    {% endif %}
+
+    <br>
+    <br>
 
 <!-- <i>Instructions:</i>
 <p>Click on a Movie title to update your details.</p>
 <br> -->
 
-<h4 class="border-bottom pb-2 mb-4">Participants</h4>
+    <h4 class="border-bottom pb-2 mb-4">Participants</h4>
 
-<ul class="pl-0" style="list-style-type:none">
-{% for pair in current_round_pairs %}
-  <li>{{ pair.0.username }}</li>
-{% empty %}
-  <li>The current round has no Participants.</li>
-{% endfor %}
-</ul>
+    <ul class="pl-0" style="list-style-type:none">
+    {% for pair in current_round_pairs %}
+      <li>{{ pair.0.username }}</li>
+    {% empty %}
+      <li>The current round has no Participants.</li>
+    {% endfor %}
+    </ul>
 
 {% else %}
 <p>There is no currently active Round.</p>

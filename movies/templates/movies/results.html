@@ -73,7 +73,7 @@
   {% else %} <!-- this is where the Round results are displayed in full -->
 
 <!--   <h3 class="text-center">{{ current_round.winner.username }} &nbsp;Wins!</h3> -->
-<h4 class="text-center"><b>{{ current_round.winner.username }}</b> Wins!</h4>
+<h3 class="text-center"><b>{{ current_round.winner.username }}</b> Wins!</h3>
   <br>
 
   <h5 class="border-bottom pb-2 mb-4">Round {{ current_round.round_number }} Rankings
@@ -81,11 +81,12 @@
 
   <ul class="pl-0" style="list-style-type:none">
     {% for urd in user_round_details %}
-      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.user.pk %}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
+      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.user.pk %}?next={{ request.path|urlencode }}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
     {% endfor %}
   </ul>
   
-  <p>Click a name to see detailed Round Results for that user.</p>
+  <br>
+  <p>Click a Participant's name above to see <i>detailed results</i> for that user.</p>
 
   <br>
 
@@ -95,7 +96,7 @@
     vs. packaging things up very literally / neatly in the view context for direct access. which is preferable??-->
   <ul class="pl-0" style="list-style-type:none">
   {% for pair in user_movie_pairs %}
-    <li>{{ pair.1.name }}<span class="float-right">{{ pair.0.username }}</span></li>
+    <li><a href="{{ pair.1.get_absolute_url }}?next={{ request.path|urlencode }}">{{ pair.1.name }}</a><span class="float-right">{{ pair.0.username }}</span></li>
   {% endfor %}
   </ul>
 
@@ -117,7 +118,7 @@
 <br>
 <br>
 
-<p class="border-bottom pb-2 mb-2">View Previous Rounds</p>
+<h5 class="border-bottom pb-2 mb-4">Previous Rounds</h5>
 <ul class="pl-0" style="list-style-type:none">
   {% for game_round in previous_game_rounds %}
     <li><a href="{% url 'movies:old_round_results' game_round.pk %}">Round {{ game_round.round_number }} Results</a></li>

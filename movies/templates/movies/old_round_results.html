@@ -20,11 +20,12 @@
 
   <ul class="pl-0" style="list-style-type:none">
     {% for urd in user_round_details %}
-      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.user.pk %}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
+      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.user.pk %}?next={{ request.path|urlencode }}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
     {% endfor %}
   </ul>
   
-  <p><i>Click a user name above to see <b>detailed results</b> for that user.</i></p>
+  <br>
+  <p><small>Click a Participant's name to see detailed results for that user.</small></p>
 
   <br>
 
@@ -32,7 +33,7 @@
 
   <ul class="pl-0" style="list-style-type:none">
   {% for pair in user_movie_pairs %}
-    <li>{{ pair.1.name }}<span class="float-right">{{ pair.0.username }}</span></li>
+    <li><a href="{{ pair.1.get_absolute_url }}?next={{ request.path|urlencode }}">{{ pair.1.name }}</a><span class="float-right">{{ pair.0.username }}</span></li>
   {% endfor %}
   </ul>
 
@@ -44,6 +45,7 @@
     <li>Most Enjoyed Movie<span class="float-right">{{ most_enjoyed_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
    </ul>
 
-
+<br>
+<a href="{% url 'movies:results' %}"><b><span class="float-right">Go Back</b></span></a></p>
 
 {% endblock content %}

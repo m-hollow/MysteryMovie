@@ -18,7 +18,7 @@
 <ul class="pl-3" style="list-style-type:none">
   {% for point_dict in user_points_by_guess %}
   
-    <li>{{ point_dict.point_string }}</li>
+    <li>&nbsp;&nbsp;&nbsp;{{ point_dict.point_string }}</li>
 
   {% empty %}
   <li>This user did not correctly match any Users to their Movie Choices!</li>
@@ -31,7 +31,7 @@
 <ul class="pl-3" style="list-style-type:none">
   {% for point_type, point_list in user_points_by_movie.items %}
     {% for point_dict in point_list %}
-      <li>{{ point_dict.point_string }}</li>
+      <li>&nbsp;&nbsp;&nbsp;{{ point_dict.point_string }}</li>
     {% endfor %}
   {% empty %}
   <li>This user did not earn any points for their movie, yikes!</li>

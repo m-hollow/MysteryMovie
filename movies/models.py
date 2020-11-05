@@ -27,10 +27,7 @@ class GameRound(models.Model):
     # QUESTION: what would unique=True on this field actually do / mean ?
     winner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, verbose_name='Winner')
     
-    # if you create an intermediary table for this connection, you could store 'winner' as an additional field
-    # in that table, instead of having a winner field in  this model; this is directly comparable to your situation of
-    # having the 'chosen by' field in movie, even though you are also tracking that info 'is_user_movie' in the
-    # intermediary table of Movie and User, UserMovieDetail.
+
     participants = models.ManyToManyField(settings.AUTH_USER_MODEL, through='UserRoundDetail', verbose_name='Participating Members', 
         related_name='related_game_rounds')
 
@@ -98,13 +95,9 @@ class Movie(models.Model):
 
     bool_choices = ((True, 'Yes'), (False, 'No'))
 
-    # remove null=True here, every movie must be assigned to a round
-    # IMPORTANT QUESTION; when I try to remove it and do makemigrations, even with an EMPTY database (e.g.
-    # no Movie records exist, it still throws the 'set default' warning, wanting me to provide a default
-    # for 'existing rows' -- but there are no existing rows!
     game_round = models.ForeignKey(GameRound, default="", on_delete=models.CASCADE, related_name='movies_from_round')
 
-    # when is this getting set? are we using it at all? IMPORTANT: I THINK YOU NEVER SET THIS, ANYWYERE; IT'S NOT USED...
+    # NOTE: THIS FIELD CURRENTLY NOT BEING USED, AND NEVER ACTUALLY GETS ASSIGNED TO !!! (it was put here for quick-n-dirty access)
     chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 
         related_name='chosen_movie', null=True, blank=True, verbose_name="Chosen By User")
 
@@ -112,7 +105,7 @@ class Movie(models.Model):
 
     date_watched = models.DateField(default=date.today, null=True, verbose_name = "Date Watched")
 
-    # NOTE! Order of through fields in the tuple is CRITICAL: the first one MUST be the one that refers to
+    # NOTE! Order of 'through fields' in the tuple is CRITICAL: the first one MUST be the one that refers to
     # the model that defines the M2M connection, e.g. in this case, movie MUST be the first entry.
     # in other words, tuple format is (model_defined_on, targeted_model)
 
@@ -164,9 +157,10 @@ class UserProfile(models.Model):
 
     BOOL_CHOICES = ((True, 'Yes'), (False, 'Nope'))
 
-    # IMPORTANT: these points need to be tied to a specific Round, currently, they are just 'global'
-    # you could still use these fields as a CUMULATIVE POINT TOTAL that sums all points from all rounds, which
-    # is probalby worth tracking, but not neccessarily super useful...
+    # overall points for the User -- includes ALL game rounds they participated in
+    # NOTE: in the current build, these are not being used or displayed.
+    # if you want to use them, you'll have to figure out where to implement an update
+    # to them in a bug-free manner
     total_correct_guess_points = models.PositiveSmallIntegerField(default=0, null=True)
     total_known_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     total_unseen_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
@@ -178,10 +172,8 @@ class UserProfile(models.Model):
     # does this user have MMG admin priviledges (distinct from django admin, mind you!)
     is_mmg_admin = models.BooleanField(choices=BOOL_CHOICES, default=False)
 
-    # same issue here, it's global, not per-Round
     total_trophies = models.ManyToManyField(Trophy, through='TrophyProfileDetail', related_name='related_profiles')
 
-    # this could be 
     rounds_won = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
 
     def __str__(self):
@@ -204,9 +196,6 @@ class UserMovieDetail(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
 
-    # I think this is unnecessary / redundant, as we can access the round object through the movie field above.
-    # it seems in schema design there is a point where risk making spaghetti out of your tables...
-    #game_round = models.ForeignKey(GameRound, on_delete=models.CASCADE, related_name = 'umd_from_round')
 
     BOOL_CHOICES = ((True, 'Yes'), (False, 'Nope'))
 
@@ -252,9 +241,18 @@ class TrophyProfileDetail(models.Model):
 
 
 
+class PointsEarned(models.Model):
+    """A simple point Table so we can display strings about how points were earned, rather than just using ints"""
 
+    user_round_ob = models.ForeignKey(UserRoundDetail, on_delete=models.CASCADE, related_name='points_earned') # think of a point objects relationship to URD as equivalent to
+                                                                                 # an Entry -> Topic or Article --> Magazine / Publisher
 
+    point_int = models.PositiveSmallIntegerField()
+    point_type = models.CharField(max_length=100, null=True, verbose_name='Type of Point Earned')
+    point_string = models.CharField(max_length=300, verbose_name='How Point Was Earned')
 
+    def __str__(self):
+        return self.point_string
 
 
 

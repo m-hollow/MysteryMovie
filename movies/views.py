@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.http import Http404
 from django.db.models import Max, Min, Avg
 
-from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank)
+from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank, PointsEarned)
 from .forms import AddMovieForm, UserMovieDetailForm
 
 # Note: using get_user_model and settings.AUTH_USER_MODEL are unneccessary in this project, as you are
@@ -83,11 +83,8 @@ class SettingsView(LoginRequiredMixin, TemplateView):
         return context
 
 
-# I couldn't make this a DetailView, because that requires a pk argument to be captured by the URL, and 
-# this view is called from base.html, and afaik I have no ability to pass an argument such as a pk in base.html,
-# because I have no view for rendering it; the Results link in the navbar would need an <int:pk> in the url, which
-# I can certainly add to the URL, but how do I -pass- an argument to that URL from the base.html template ? it has
-# no access to results objects, and I have no view to provide it with that context...
+# this is not a DetailView becuase that requires a pk argument in the url, and this link appears in navbar on base.html,
+# which I (currently) have no way to send vars to (for the url to capture).
 class ResultsView(TemplateView):
     """
     When Round is in progress, this is used to display who has and has not submitted their details for each movie.
@@ -161,15 +158,10 @@ class ResultsView(TemplateView):
 
                 # this is my workaround for getting the two movies with the lowest and highest average ratings
                 # it should absolutely be possible to do this in a django query instead
-                # two issues:
+                # the issue why I can't, currently:
                 
-                # 1. average_rating on the movie object is a property, which can't be used in django queries;
+                # 1. average_rating on the movie object is a @property, which can't be used in django queries;
                 # if it wasn't a property, I'd just query the movies, do order_by('avg_rating') and grab .first() and .last()
-
-                # 2. aggregates return values, not objects. this should be obvious, but I'm blanking on it:
-                # how do I return the OBJECT with the 'highest' or 'lowest' value of a given field ? 
-                # Max() and Min() return the field value itself; do I have to annotate first, then sort the annotations?
-                # isn't there a faster way?
 
                 avg_ratings_list = [(movie.average_rating, movie) for movie in current_round_movies]
 
@@ -182,11 +174,7 @@ class ResultsView(TemplateView):
                 
                 user_movie_pairs = []
                 for participant in current_round_participants:
-                    # compare and contrast these two approaches to getting a given participant's movie object
-                    # the first is Table-level, the second is record-level; they both retreive the Movie object
-                    # that the Participant chose for the round; I'd say the record-level query is simpler...we are *starting with*
-                    # just the movie objects that are related to the participant via the M2M (with records stored in UserMovieDetail)
-
+                    # alternate approach: Table-level query; yields identical results
                     #p_movie = Movie.objects.get(game_round=current_round, usermoviedetail__user=participant, usermoviedetail__is_user_movie=True)
                     p_movie = participant.related_movies.get(game_round=current_round, usermoviedetail__is_user_movie=True)
 
@@ -256,6 +244,25 @@ class UserResultsView(DetailView):
         participant_movie = participant.related_movies.get(game_round=game_round, usermoviedetail__is_user_movie=True)
         movie_avg_rating = participant_movie.average_rating # this is a propery and can't (I think) be accessed by template
 
+        # get all the point objects related to this URD object
+        point_objects = self.object.points_earned.all()
+
+        # retreive the point objects, sorting by type:
+        guess_points = self.object.points_earned.filter(point_type='guess')
+        unseen_points = self.object.points_earned.filter(point_type='unseen')
+        known_points = self.object.points_earned.filter(point_type='known')
+        liked_points = self.object.points_earned.filter(point_type='liked')
+        disliked_points = self.object.points_earned.filter(point_type='disliked')
+
+        movie_points_total = (unseen_points.count() + known_points.count() + liked_points.count() + disliked_points.count())
+
+        context['movie_points_total'] = movie_points_total
+        context['guess_points'] =  guess_points
+        context['unseen_points'] = unseen_points
+        context['known_points'] = known_points
+        context['liked_points'] = liked_points
+        context['disliked_points'] = disliked_points
+
         context['round_length'] = game_round.participants.all().count()
         context['participant_movie'] = participant_movie
         context['movie_avg_rating'] = movie_avg_rating
@@ -264,11 +271,7 @@ class UserResultsView(DetailView):
 
 
 
-# the way this is designed right now, this isn't really an UpdateView -- you aren't updating the GameRound object in here....
-# this is more of a staging area for calculating and presenting the scoring results, from which you'd then trigger the actual
-# update views...
-# the trick is, since it's only creating a new data object (point_queue) and not modifying db contents, you need a way to 
-# pass that data object to the views that actually do the updating
+# using UpdateView, but it's not, really; nothing gets updated in db until the Commit views are called.
 class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = GameRound
     template_name = 'movies/conclude_round.html'
@@ -333,10 +336,6 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # redundant overall, since the ranking itself will show the winner; this was done simply so GameRound has quick & dirty access
         # to the User who won the round
 
-        #winner_name = max(ranked_results, key=ranked_results.get)  # .get as key: compares values but max returns dict key, not value
-        # above doesn't work! it computes max based on first value in list, which is rank, so the HIGHEST rank wins, when in fact
-        # the number 1 represents the winner, d'oh!
-
         winner_name = min(ranked_results, key=ranked_results.get) #  min, because the first val in list is rank, and rank 1 is winner
 
         # store the point_queue and ranked_results dictionaries in the session, to be used by both CommitUserRound and CommitGameRound views
@@ -387,7 +386,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # prepend an int value to each list, denoting the final rank value of that participant key
         r = 1
         for key, value in ranked_results.items():
-            value.insert(0, r)  # at index 0, insert value of r -- using insert() to 'prepend' to list
+            value.insert(0, r)  # at index 0, insert value of r, that is, using insert() to 'prepend' to list
             r += 1
 
         # final ranked_results dict contains: key - participant name, value - list with THREE items: rank, point total, avg rating of movie choice
@@ -435,7 +434,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             if umd.user_guess == user_that_chose_movie:   # can't compare against username, because in some cases value will be None (user record for movie they chose)
                 point_dict = {
                     'point_value': 1,
-                    'point_string': '+1  Correctly guessed that {} chose {}'.format(umd.user_guess.username, umd.movie.name)
+                    'point_string': 'Correctly guessed that {} chose {}'.format(umd.user_guess.username, umd.movie.name)
                 }
 
                 points_by_guess.append(point_dict)
@@ -460,7 +459,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             if not umd.seen_previously:
                 point_dict_one = {
                     'point_value': 1,
-                    'point_string': '+1  {} had not previously seen {}.'.format(umd.user.username, umd.movie.name)
+                    'point_string': '{} had not previously seen {}'.format(umd.user.username, umd.movie.name)
                 }
 
                 points_by_movie_unseen.append(point_dict_one)
@@ -468,7 +467,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             if umd.heard_of:
                 point_dict_two = {
                     'point_value': 1,
-                    'point_string': '+1  {} had heard of {}'.format(umd.user.username, umd.movie.name)
+                    'point_string': '{} had heard of {}'.format(umd.user.username, umd.movie.name)
                 }
 
                 points_by_movie_known.append(point_dict_two)
@@ -477,7 +476,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             if umd.star_rating == 1:
                 point_dict_three = {
                     'point_value': 1,
-                    'point_string': '+1 {} gave {} the worst possible rating, 1 star.'.format(umd.user.username, umd.movie.name)
+                    'point_string': '{} gave {} the worst possible rating, 1 star.'.format(umd.user.username, umd.movie.name)
 
                 }
 
@@ -486,7 +485,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             if umd.star_rating > 3:
                 point_dict_four = {
                     'point_value': 1,
-                    'point_string': '+1 {} rated {} higher than 3 stars.'.format(umd.user.username, umd.movie.name)
+                    'point_string': '{} rated {} higher than 3 stars.'.format(umd.user.username, umd.movie.name)
                 }
 
                 points_by_movie_liked.append(point_dict_four)
@@ -541,12 +540,11 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         """Update the UserProfile object with the data saved in UserRoundObject"""
 
-
         # we update the related UserProfile object with all the scoring values obtained for this round
         # UserProfile tracks global progress, not per-round.
         this_user = self.object.user
         this_user_name = this_user.username
-        user_profile = this_user.userprofile    # one-to-one connection, reverse access syntax
+        #user_profile = this_user.userprofile    # one-to-one connection, reverse access syntax
 
         user_rank = self.request.session['ranked_results'][this_user_name][0]  # first index of list is the rank int
         movie_avg = self.request.session['ranked_results'][this_user_name][2]  # third indexof list is their movie's avg rating
@@ -554,24 +552,85 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
         # get corresponding RoundRank object
         round_rank_object = RoundRank.objects.get(rank_int=user_rank) # there should be a 'task' to call the function that fills up the RoundRank table
 
-        # consider alternate option, that admin inputs the rank value in the form
+        # assign the rank to the form's model (ForeignKey, rank is the 'one')
         form.instance.rank = round_rank_object
         form.instance.movie_average_rating = movie_avg
 
         if user_rank == 1:
             form.instance.winner_bool = True
-            user_profile.rounds_won += 1
+            #user_profile.rounds_won += 1   # this logic has been moved to CommitGameRoundView's form_valid method
 
+        # i'm removing the updates to total point fields in User Profile because 1. it's super buggy and 2. we don't even need / use them
         # update the related user profile, which stores global (all rounds) results
-        user_profile.total_correct_guess_points += form.instance.correct_guess_points
-        user_profile.total_known_movie_points += form.instance.known_movie_points
-        user_profile.total_unseen_movie_points += form.instance.unseen_movie_points
-        user_profile.total_liked_movie_points += form.instance.liked_movie_points
-        user_profile.total_disliked_movie_points += form.instance.disliked_movie_points
+        # user_profile.total_correct_guess_points += form.instance.correct_guess_points
+        # user_profile.total_known_movie_points += form.instance.known_movie_points
+        # user_profile.total_unseen_movie_points += form.instance.unseen_movie_points
+        # user_profile.total_liked_movie_points += form.instance.liked_movie_points
+        # user_profile.total_disliked_movie_points += form.instance.disliked_movie_points
 
-        user_profile.save()
+        #user_profile.save()
 
-        return super().form_valid(form)   # call to super() saves the form, but not the user_profile we modified above
+        # now we need to generate Point objects that will be related to this UserRoundDetail object, and store the relevant
+        # string in their point_string field. These will be used to display detailed result data (the strings) later, in views
+        # that have no access (naturally) to the session dict used in here.
+
+        point_queue = self.request.session['point_queue']
+        this_users_points = point_queue[this_user_name]
+
+
+        # first, clear out (delete) any point object records that already exist for this user_round_object; otherwise
+        # if an admin makes edits to the rounds point totals, then hits submit not for the first time, you will have a
+        # duplicate set of point objects!
+        if PointsEarned.objects.filter(user_round_ob=self.object).exists():
+            PointsEarned.objects.filter(user_round_ob=self.object).all().delete()
+
+
+        # think through how to do all of the below in *one* pass through the this_users_points dictionary; these five loops
+        # are nearly identical -except- the distinction of point_type (stored by key) and the need to define that in the create() call;
+        # we'd need a way to assign the key's value, e.g. 'points_by_movie_unseen' to the point_type field in the create call...
+
+        # in case P has no points in the referenced list; empty list returns False
+        if this_users_points['points_by_guess']:
+            for point_dict in this_users_points['points_by_guess']:
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='guess', point_string=point_string)
+        else:
+            pass
+
+        if this_users_points['points_by_movie_known']:
+            for point_dict in this_users_points['points_by_movie_known']:         # using create() is just a convenience method that constructs the object and saves it all in one action
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='known', point_string=point_string)
+        else:
+            pass
+                    
+        if this_users_points['points_by_movie_unseen']:
+            for point_dict in this_users_points['points_by_movie_unseen']:
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='unseen', point_string=point_string)
+        else:
+            pass
+            
+        if this_users_points['points_by_movie_liked']:
+            for point_dict in this_users_points['points_by_movie_liked']:
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='liked', point_string=point_string)
+        else:
+            pass
+            
+        if this_users_points['points_by_movie_disliked']:
+            for point_dict in this_users_points['points_by_movie_disliked']:
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='disliked', point_string=point_string)
+        else:
+            pass
+            
+        return super().form_valid(form) # call to super() saves the form, but not the user_profile we modify in the view
 
 
     def get_success_url(self):
@@ -613,16 +672,15 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
         return context
 
 
-# view for updating the overall GameRound object  -- can you merge this into the existing EditRound view ? seems
-# weird to have two UpdateViews that work on the same object... can you 
-
+# some redundancy in current build; we have two separate UpdateViews that both process GameRound; surely you can merge them
+# one is for 'editing' the other is for 'committing', but still...
 class CommitGameRoundView(LoginRequiredMixin, UpdateView):
     model = GameRound
     template_name = 'movies/commit_game_round.html'
     context_object_name = 'game_round'
     #success_url = reverse_lazy('movies:conclude_round', kwargs={'pk': self.object.pk})
 
-    fields = ['date_finished', 'winner', 'participants', 'round_completed']
+    fields = ['date_finished', 'winner', 'participants']
 
     login_url = 'login'
 
@@ -640,7 +698,18 @@ class CommitGameRoundView(LoginRequiredMixin, UpdateView):
 
 
     def form_valid(self, form):
-        """do I have any tasks to perform in here ??"""
+        # we have one additional task here: get the round winner and update their profile's rounds_won field
+
+        # I kept forgetting to input this manually on the form, so I'm making it automatic now:
+        form.instance.round_completed = True    # we are committing the game round, so we set this to True automatically
+
+        winner_name = self.request.session['winner_name']
+        winner = User.objects.get(username__icontains=winner_name)
+        winner_profile = winner.userprofile
+        #update the profile to record the win
+        winner_profile.rounds_won += 1
+        winner_profile.save()
+
         return super().form_valid(form)
 
 
@@ -712,8 +781,6 @@ class OldRoundView(DetailView):
         return context
 
 
-
-
 class MovieDetail(LoginRequiredMixin, DetailView):
     model = Movie
     template_name = 'movies/movie.html'
@@ -778,7 +845,8 @@ def process_details(request, movie_pk):
         # game_round is cached by select_related above, so this line does not perform a query on the db itself:
         game_round = movie.game_round    # connects to a single specific game_round instance
 
-        # this doesn't really 'need' the current_user argument, as that is only used for how the form is displayed,
+        # this doesn't really 'need' the current_user argument (in the sense that it's required, but won't be used), 
+        # as that is only used for how the form is displayed,
         # and this function is only a POST request, after the data is submitted; but, since the form constructor
         # is being called, and the __init__ method of the form includes an assigment using the current_user value,
         # you need to provide it here simply because its expected.
@@ -795,9 +863,6 @@ def process_details(request, movie_pk):
             #return redirect('movies:movie', kwargs={'pk': movie.pk, 'slug': movie.slug}) # doesn't work! 
             #return redirect('movies:movie', pk=movie.pk, slug=movie.slug)  # this works, though...
             return redirect(movie)  # this works, using get_absolute_url of movie object
-
-            # short version of Q: why can I pass the kwargs dict to reverse() successfully (like I do
-            # numerous times in NoirDB views for the UMD) but not to redirect() ?
 
 
 @login_required
@@ -816,7 +881,7 @@ def update_details(request, umd_pk):
         # initial GET request
         # adding current_user keyword argument to match behavior of get_form_kwargs method of CBV version of this;
         # this is used in the ModelForm to exclude the user, see: UserMovieDetailForm
-        # note: you also have to pass this to the From in the Movie detail view!
+        # note: you also have to pass this to the Form in the Movie detail view!
         form = UserMovieDetailForm(instance=umd_object, current_user=request.user) # create the form, using data from existing object
         # filter users so only users that are participating in current round are displayed in guess choice:
         #form.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=movie.game_round) # works!
@@ -833,9 +898,8 @@ def update_details(request, umd_pk):
     return render(request, 'movies/update_details.html', context)
 
 
-# the current big Q: how to get the modification of the form.fields performed in the function above to work inside
-# the CBV below....what method do I override to put it there? it -must- go in the GET portion of the CVB's functionality...
-
+# Q: how to get the modification of the form.fields performed in the function above to work inside
+# the CBV below....what method do I override to put it there? answer: use get_form() method
 class UpdateDetailsView(LoginRequiredMixin, UpdateView):
     model = UserMovieDetail
     template_name = 'movies/update_details.html'
@@ -857,6 +921,7 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
 
     # UpdateView takes care of passing the to-be-updated object instance to the ModelForm constructor
     # you'd only need to do that if you were writing this as a non-CBV function.
+
 
 
 class MembersView(ListView):
@@ -911,8 +976,6 @@ class MembersView(ListView):
         return context
 
 
-# an old question: how to access the (already grabbed) queryset while inside get_context_data method? I know
-# you did this before...
 
 class AddMovieView(LoginRequiredMixin, CreateView):
     model = Movie
@@ -948,41 +1011,19 @@ class CreateRoundView(LoginRequiredMixin, CreateView):
 
     login_url = 'login'
 
-    # whenever a round is created, we need to retreive the *previous* round object and set its 'active_round' 
-    # to False. (Marking a round as complete only updates round_completed, NOT active_round -- this is so we
-    # can have a 'most recent round' record that is also a completed record).
-
     # we have an additional task to peform on the db related to the creation of this object, so override form_valid to do
     # the extra work:
     def form_valid(self, form):
 
         # get the most recent GameRound object and 'de-activate' it
-        previous_round = GameRound.objects.last()   # VERIFY THAT THIS WORKS! want to be sure it's not actually grabbing THIS new round object...
+        previous_round = GameRound.objects.last()
         previous_round.active_round = False
         previous_round.save()
 
         # automatically set the new object to be the active round
         form.instance.active_round = True
 
-        # optionally, you could add 'active_round' to the fields above, and allow the admin to decide if this new round
-        # should be active or not; if they set it to False, there will be no currently active round in the database, and the
-        # front page will display that status until the admin edits the round and sets active_round to True
-
         return super().form_valid(form)
-
-# the method below  is a good example of breaking up the normal flow of a form_valid method; we want to modify
-# the object AFTER it is saved, but before the redirect. That's why the format of this is different
-# than the other 'standard' form_valid methods used. Another good example is in the NoirDB User registration
-# view. There are two possible approaches as documented on SO thread: 
-# "Django CreateView: How to perform action upon save";
-  
-    # no longer doing this, for now; round number is simply entered on creation form.
-
-    # def form_valid(self, form):
-
-    #     self.object = form.save() # manually create the object instance so we can then modify it
-    #     self.object.round_number = self.object.compute_round_number()
-    #     return redirect(self.get_success_url())
 
 
 class EditRoundView(LoginRequiredMixin, UpdateView):

@@ -27,7 +27,7 @@ def reformat_date_two(date_string):
 
 
 def create_ranks():
-
+    """This needs to be called once, on the server, after the database is hooked up, to populate these fields"""
     int_list = list(range(1,11))
     string_list = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eigth', 'Ninth', 'Tenth']
 
