@@ -7,19 +7,20 @@
 
 
 {% block page_header %}
-  <h2>Conclude Round</h2>
+  <h2>Conclude Round {{ game_round.round_number }} </h2>
 {% endblock page_header %}
 
 {% block content %}
 
-<p>Preliminary Results of Round {{ game_round.round_number }}</p>
+{% if not game_round.round_completed %}
 
-
-
+<p class="mb-2"><b>Admin Instructions:</b></p>
+<p>
+• Click a user name to review & submit their scores<br>
+• Once all users are marked <i>done</i>, review and submit the Game Round
+</p>
 
 <br>
-
-{% if not game_round.round_completed %}
 
 <p class="border-bottom mb-2">Review Participant Scores</p>
 
@@ -43,20 +44,11 @@
     <a href="{% url 'movies:commit_game_round' game_round.pk %}">Game Round {{ game_round.round_number }}</a>
       <span class="float-right"><small>Not Submitted</small></span>
 
-   <br>
-   <br>
-   <br>
-    <p class="mb-2"><b>Admin Instructions:</b></p>
-    <p>
-    • Click a user name to review & submit their scores.<br>
-    • Once all users are marked <i>done</i>, review and submit the Game Round.
-   </p>
 
 
 
 {% else %}
-  <p>The current round, number {{ game_round.round_number }}, has already been completed by Admin.</p>
-
+  <p>Round {{ game_round.round_number }} has been submitted as Complete by Admin!</p>
 
 {% endif %}
 

@@ -142,7 +142,14 @@ class Movie(models.Model):
             'pk': str(self.id),
             'slug': self.slug
         }
-        return reverse('movies:movie', kwargs=kwargs)
+
+        # round still in progress, movie page is the active, form-loading version
+        if not self.game_round.round_completed:
+            return reverse('movies:movie', kwargs=kwargs)
+        # round is complete; call a different movie pag, one without the form / no modifications
+        else:
+            return reverse('movies:old_movie', kwargs=kwargs)
+
 
     def save(self, *args, **kwargs):
         value_for_slug = self.name

@@ -12,7 +12,7 @@
 
 {% block content %}
 
-<form method="post" action="{% url 'login' %}"> <!-- question: could you use ?next... here instead? -->
+<form method="post" action="{% url 'login' %}"> <!--if you leave action blank, it will call the same view that rendered this form, but as a POST request -->
     {% csrf_token %}
     {{ form|crispy }}
     <button class="btn btn-secondary" type="submit">Login</button>

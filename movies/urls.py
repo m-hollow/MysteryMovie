@@ -1,12 +1,16 @@
 from django.urls import path
-from .views import (IndexPageView, MovieDetail, MembersView, AddMovieView, 
+from django.views.generic.base import RedirectView
+
+from .views import (IndexPageView, MovieDetail, OldMovieDetail, MembersView, AddMovieView, 
     process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundView, ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, SettingsView, UserResultsView)
 
 app_name = 'movies'
 urlpatterns = [
     # Home Page
-    path('', IndexPageView.as_view(), name='index'),
+    path('', RedirectView.as_view(url='/users/login/')), # base url redirects to default auth login at users/login/
+    path('index/', IndexPageView.as_view(), name='index'),
     path('movie/<int:pk>-<str:slug>/', MovieDetail.as_view(), name='movie'),
+    path('old_movie/<int:pk><str:slug>/', OldMovieDetail.as_view(), name='old_movie'), # distinguish between a movie in current round & previous round
     path('members/', MembersView.as_view(), name='members'),
     path('add_movie/', AddMovieView.as_view(), name='add_movie'),
 
@@ -30,7 +34,6 @@ urlpatterns = [
     path('settings/', SettingsView.as_view(), name='settings'),
     path('user_results/<int:pk>', UserResultsView.as_view(), name='user_results'),
 ]
-
 
 
 

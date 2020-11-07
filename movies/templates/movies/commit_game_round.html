@@ -15,12 +15,8 @@
 {% block content %}
 
 {% if not all_data_reviewed %}
-  <p>You have not reviewed and submitted results for all participants in the round.<br>
-  Please return to previous screen and submit scores for all participants.</p>
+  <p>You have not reviewed and submitted results for all participants in the round.</p>
 {% else %}
-
-
-
     <form method="post" action="" class="form">
       {% csrf_token %}
       {% bootstrap_form form %}

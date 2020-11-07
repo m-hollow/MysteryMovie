@@ -34,11 +34,11 @@
 
       <br>
 
-      <p class="border-bottom mb-2">Movie<span class="float-right">Participants</span></p>
+      <h5 class="border-bottom pb-2 mb-4">Movie<span class="float-right">Participants</span></h5>
 
       <ul class="pl-0" style="list-style-type:none">
       {% for movie_name, status in round_progress_dict.items %}
-        <li><b>{{ movie_name }}</b></li>
+        <li class="pb-1"><b>{{ movie_name }}</b></li>
           <ul class="pl-3" style="list-style-type:none">
             <li>Details Received:<span class="float-right">
             {% for participant in status.submitted %}
@@ -48,7 +48,7 @@
             {% endfor %}
             </span></li>
         
-            <li>Need Details From:<span class="float-right">
+            <li>Details Needed:<span class="float-right">
             {% for participant in status.incomplete %}
               &nbsp;<small>{{ participant.username }}</small>
             {% empty %}
@@ -66,7 +66,7 @@
         {% if user.userprofile.is_mmg_admin %}
         <p>Admin: <span class="float-right"><a href="{% url 'movies:conclude_round' current_round.pk %}"><b>Conclude Round</b></a></span></p>
         {% else %}
-        <p>Round is ready to be Concluded by Admin.</p>
+        <p>This Round is ready to be Concluded by the Admin!</p>
         {% endif %}
       {% endif %}
   
@@ -81,7 +81,7 @@
 
   <ul class="pl-0" style="list-style-type:none">
     {% for urd in user_round_details %}
-      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.user.pk %}?next={{ request.path|urlencode }}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
+      <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.pk %}?next={{ request.path|urlencode }}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
     {% endfor %}
   </ul>
   
@@ -92,8 +92,6 @@
 
   <h5 class="border-bottom pb-2 mb-4">Who Chose What ?<span class="float-right"><small>Responsible Party</small></span></h5>
 
-<!-- here is an exercise in seeing how much data we can access through related objects while in the template,
-    vs. packaging things up very literally / neatly in the view context for direct access. which is preferable??-->
   <ul class="pl-0" style="list-style-type:none">
   {% for pair in user_movie_pairs %}
     <li><a href="{{ pair.1.get_absolute_url }}?next={{ request.path|urlencode }}">{{ pair.1.name }}</a><span class="float-right">{{ pair.0.username }}</span></li>
@@ -102,11 +100,15 @@
 
 <br>
 
-<h5 class="border-bottom pb-2 mb-4">Trivia</h5>
+<h5 class="border-bottom pb-2 mb-4">Other Details</h5>
   <ul class="pl-0" style="list-style-type:none">
+    <li>Date Round Started:<span class="float-right">{{ current_round.date_started }}</span></li>
+    <li>Date Round Concluded:<span class="float-right">{{ current_round.date_finished }}</li>
+    <br>
+
     <li>Most Loathed Movie<span class="float-right">{{ most_hated_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
     <li>Most Enjoyed Movie<span class="float-right">{{ most_enjoyed_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
-   </ul>
+  </ul>
 
   {% endif %}
 
@@ -114,7 +116,6 @@
   <p>There is no currently active round.</p>
 {% endif %}
 
-<br>
 <br>
 <br>
 
@@ -128,44 +129,7 @@
 </ul>
 
 
-
 {% endblock content %}
-
-
-<!-- you should create the UserRoundDetail object whenever a Round gets created and whenever
-    a round gets modified...but in the case of 'modified', how will you know which users are 'new'
-    to create now? You do NOT want to re-create all users, as this will 'initialize' their 
-    attributes, which would be bad: what if a user joins 'in progress': adding them would reset
-    all other users..... -->
-
-
-<!-- use this for the round_concluded display, NOTE: NEEDS UPDATING TO NEW FORM OF point_queue -->
-
-    <!--  looping through the point_queue to display point results by type, per participant:
-
-
-# thing is, point queue isn't even passed to this template... you could do that, but since by this time
-# the UserRoundDetail and GameRound objects have been updated with the results of the round, it makes 
-# FAR more sense to loop through those, instead. So rewrite the below to do that, instead of accessing
-# point_queue; it will probably be much easier, since they are actual db records, rather than your
-# abstracted dict of data
-
-  {% for parp, results in point_queue.items %}
-  <p class="border-bottom">{{ parp }}</p>
-  <ul>
-    {% for point_type, points_list in results.items %}
-    <li>{{ point_type }}</li>
-      <ul>
-      {% for point_dict in points_list %}
-        <li>point_dict.point_string</li>
-      {% endfor %}
-      </ul>
-    {% endfor %}
-  </ul>
-{% endfor %}
-
--->
-
 
 
 

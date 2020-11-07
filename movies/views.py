@@ -16,10 +16,13 @@ from .forms import AddMovieForm, UserMovieDetailForm
 # using the default django admin User model. You can rewrite the models and views to simply access User
 # and import it as done above.
 
-class IndexPageView(ListView):
+
+class IndexPageView(LoginRequiredMixin, ListView):
     #queryset = Movie.objects.order_by('-date_watched') # we need get_querset override so we can grab round object...
     template_name = 'movies/index.html'
     context_object_name = 'movies'
+
+    login_url = 'login'
 
     def get_queryset(self):
         current_round = GameRound.objects.filter(active_round=True).last()
@@ -82,16 +85,17 @@ class SettingsView(LoginRequiredMixin, TemplateView):
 
         return context
 
-
 # this is not a DetailView becuase that requires a pk argument in the url, and this link appears in navbar on base.html,
 # which I (currently) have no way to send vars to (for the url to capture).
-class ResultsView(TemplateView):
+class ResultsView(LoginRequiredMixin, TemplateView):
     """
     When Round is in progress, this is used to display who has and has not submitted their details for each movie.
     When Round is complete, this is used to display the results of the round.
 
     """
     template_name = 'movies/results.html'
+
+    login_url = 'login'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -230,11 +234,12 @@ class ResultsView(TemplateView):
         return context
 
 
-
-class UserResultsView(DetailView):
+class UserResultsView(LoginRequiredMixin, DetailView):
     model = UserRoundDetail
     template_name = 'movies/user_results.html'
     context_object_name = 'user_round_details'
+
+    login_url = 'login'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -268,7 +273,6 @@ class UserResultsView(DetailView):
         context['movie_avg_rating'] = movie_avg_rating
         context['game_round'] = game_round
         return context
-
 
 
 # using UpdateView, but it's not, really; nothing gets updated in db until the Commit views are called.
@@ -405,7 +409,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         total_point_dict = {}
 
         for participant, results in point_queue.items():
-            total_points_for_p = (len(results['points_by_guess']) + len(results['points_by_movie_known']) + 
+            total_points_for_p = (len((results['points_by_guess']) * 2) + len(results['points_by_movie_known']) + 
                 len(results['points_by_movie_unseen']) + len(results['points_by_movie_liked']) + 
                 len(results['points_by_movie_disliked']))
 
@@ -433,7 +437,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
             if umd.user_guess == user_that_chose_movie:   # can't compare against username, because in some cases value will be None (user record for movie they chose)
                 point_dict = {
-                    'point_value': 1,
+                    'point_value': 2,
                     'point_string': 'Correctly guessed that {} chose {}'.format(umd.user_guess.username, umd.movie.name)
                 }
 
@@ -495,7 +499,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 
 # view for updating each UserRoundDetail object
-class CommitUserRoundView(LoginRequiredMixin, UpdateView):
+class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = UserRoundDetail
     template_name = 'movies/commit_user_round.html'
     context_object_name = 'urd_object'
@@ -503,6 +507,10 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
     fields = ['correct_guess_points', 'known_movie_points', 'unseen_movie_points', 'liked_movie_points', 'disliked_movie_points', 'total_points', 'finalized_by_admin']
 
     login_url = 'login'
+    # used by UserPassesTestMixin; verify user has admin prvileges (required to commit user round)
+    def test_func(self):
+        user = self.request.user
+        return user.userprofile.is_mmg_admin   # returns True if userprofile object has is_mmg_admin True
 
     # note that you could use get_initial or get_object here
     # def get_object(self):
@@ -674,7 +682,7 @@ class CommitUserRoundView(LoginRequiredMixin, UpdateView):
 
 # some redundancy in current build; we have two separate UpdateViews that both process GameRound; surely you can merge them
 # one is for 'editing' the other is for 'committing', but still...
-class CommitGameRoundView(LoginRequiredMixin, UpdateView):
+class CommitGameRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = GameRound
     template_name = 'movies/commit_game_round.html'
     context_object_name = 'game_round'
@@ -683,6 +691,10 @@ class CommitGameRoundView(LoginRequiredMixin, UpdateView):
     fields = ['date_finished', 'winner', 'participants']
 
     login_url = 'login'
+    # used by UserPassesTestMixin; verify user has admin prvileges (required to commit round)
+    def test_func(self):
+        user = self.request.user
+        return user.userprofile.is_mmg_admin   # returns True if userprofile object has is_mmg_admin True
 
 
     def get_initial(self):
@@ -734,11 +746,12 @@ class CommitGameRoundView(LoginRequiredMixin, UpdateView):
         return context
 
 
-
-class OldRoundView(DetailView):
+class OldRoundView(LoginRequiredMixin, DetailView):
     model = GameRound
     template_name = 'movies/old_round_results.html'
     context_object_name = 'game_round'
+
+    login_url = 'login'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -797,14 +810,12 @@ class MovieDetail(LoginRequiredMixin, DetailView):
         movie = self.object
 
         # put exception handling here, or use GetObjectOr404...
-        user_profile = UserProfile.objects.get(user=user)
+        user_profile = UserProfile.objects.get(user=user)  # you should probably just do user.userprofile, you have direct 1-to-1 access....
 
         if UserMovieDetail.objects.filter(user=user, movie=movie).exists():
             user_movie_details = UserMovieDetail.objects.get(user=user, movie=movie)
         else:
             user_movie_details = None
-            # user_movie_details = UserMovieDetail(user=user, movie=movie)
-            # user_movie_details.save()
 
         # we simply build the form we want here, and pass it in the context; this works, even though this CBV is a 
         # DetailView, not an edit view. When the form is processed, a different view will be called, process_details.
@@ -818,13 +829,20 @@ class MovieDetail(LoginRequiredMixin, DetailView):
         # it's also worth noting that some of this stuff can be accessed in the template, through the base objects
         # in the context; check for redundancy...
 
-        # movie object defines the M2M to users with field users
-        user_that_chose_movie = self.object.users.get(usermoviedetail__is_user_movie=True) # only one person marked True for *this specific movie*
+        # movie object defines the M2M to users with field users - we can only access this after we KNOW all users have submitted details
+        # (that's how is_user_movie gets updated) so this can only show if game_round is completed
+        if game_round.round_completed:
+            user_that_chose_movie = self.object.users.get(usermoviedetail__is_user_movie=True) # only one person marked True for *this specific movie*
+            # same here for avg rating, only applies to a completed round:
+            movie_average_rating = self.object.average_rating
+        else:
+            user_that_chose_movie = None
+            movie_average_rating = None
 
-        # Table-Level query to retreive same object:
-        #user_that_chose_movie = UserMovieDetail.objects.get(movie=uself.object, is_user_movie=True).user
+            # Table-Level query to retreive same object above (user_that_chose_movie):
+            #user_that_chose_movie = UserMovieDetail.objects.get(movie=uself.object, is_user_movie=True).user
 
-        context['movie_avg_rating'] = self.object.average_rating
+        context['movie_avg_rating'] = movie_average_rating
         context['user_that_chose_movie'] = user_that_chose_movie
         context['game_round'] = game_round
         context['user_profile'] = user_profile
@@ -833,6 +851,47 @@ class MovieDetail(LoginRequiredMixin, DetailView):
         context['results_ready'] = results_ready
 
         return context
+
+
+class OldMovieDetail(LoginRequiredMixin, DetailView):
+    """Unlike the MovieDetail view, this one has no form / form rendering, because this view is only called for a movie in -completed- round"""
+    model = Movie
+    template_name = 'movies/old_movie.html'
+    context_object_name = 'movie'
+    query_pk_and_slug = True
+
+    login_url = 'login'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        user = self.request.user
+        user_profile = user.userprofile
+        movie = self.object
+        game_round = movie.game_round
+
+        if UserMovieDetail.objects.filter(user=user, movie=movie).exists():
+            user_movie_details = UserMovieDetail.objects.get(user=user, movie=movie)
+        else:
+            user_movie_details = None
+
+        if game_round.round_completed:
+            user_that_chose_movie = self.object.users.get(usermoviedetail__is_user_movie=True)
+            movie_average_rating = self.object.average_rating
+        else:
+            user_that_chose_movie = None
+            movie_average_rating = None
+
+
+        context['movie_avg_rating'] = movie_average_rating
+        context['user_that_chose_movie'] = user_that_chose_movie
+        context['game_round'] = game_round
+        context['user_profile'] = user_profile
+        context['user_movie_details'] = user_movie_details
+
+
+        return context
+
 
 @login_required
 def process_details(request, movie_pk):
@@ -923,8 +982,7 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
     # you'd only need to do that if you were writing this as a non-CBV function.
 
 
-
-class MembersView(ListView):
+class MembersView(LoginRequiredMixin, ListView):
     #model = get_user_model()
     # I want to order by total points, but that is a property so I can't; which means we need
     # a static, non-property value that holds the total points, and is computed by a method in
@@ -932,6 +990,8 @@ class MembersView(ListView):
     queryset = User.objects.order_by('userprofile__total_correct_guess_points')
     template_name = 'movies/members.html'
     context_object_name = 'members'
+
+    login_url = 'login'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -976,7 +1036,6 @@ class MembersView(ListView):
         return context
 
 
-
 class AddMovieView(LoginRequiredMixin, CreateView):
     model = Movie
     template_name = 'movies/add_movie.html'
@@ -1002,7 +1061,7 @@ class AddMovieView(LoginRequiredMixin, CreateView):
         return context
 
 
-class CreateRoundView(LoginRequiredMixin, CreateView):
+class CreateRoundView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = GameRound
     template_name = 'movies/create_round.html'
     success_url = reverse_lazy('movies:settings')
@@ -1010,23 +1069,28 @@ class CreateRoundView(LoginRequiredMixin, CreateView):
     fields = ['round_number', 'round_completed', 'date_started', 'participants']
 
     login_url = 'login'
+    # used by UserPassesTestMixin; verify user has admin prvileges (required to create round)
+    def test_func(self):
+        user = self.request.user
+        return user.userprofile.is_mmg_admin   # returns True if userprofile object has is_mmg_admin True
 
     # we have an additional task to peform on the db related to the creation of this object, so override form_valid to do
     # the extra work:
     def form_valid(self, form):
 
-        # get the most recent GameRound object and 'de-activate' it
-        previous_round = GameRound.objects.last()
-        previous_round.active_round = False
-        previous_round.save()
+        # if applicable, get the most recent GameRound object and 'de-activate' it
+        if GameRound.objects.all().exists():
+            previous_round = GameRound.objects.last() # current round we are creating in this view hasnt' been saved yet, so last item in list should be previously created round
+            previous_round.active_round = False
+            previous_round.save()
 
         # automatically set the new object to be the active round
         form.instance.active_round = True
 
-        return super().form_valid(form)
+        return super().form_valid(form) # newly created round is saved
 
 
-class EditRoundView(LoginRequiredMixin, UpdateView):
+class EditRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = GameRound
     template_name = 'movies/edit_round.html'
     success_url = reverse_lazy('movies:settings')
@@ -1034,12 +1098,16 @@ class EditRoundView(LoginRequiredMixin, UpdateView):
     fields = ['round_number', 'active_round', 'round_completed', 'date_started', 'participants', 'date_finished']
 
     login_url = 'login'
+    # used by UserPassesTestMixin; verify user has admin prvileges (required to edit a round)
+    def test_func(self):
+        user = self.request.user
+        return user.userprofile.is_mmg_admin   # returns True if userprofile object has is_mmg_admin True
 
 
-class TrophiesView(ListView):
+class TrophiesView(LoginRequiredMixin, ListView):
     model = Trophy
     template_name = 'movies/trophies.html'
     context_object_name = 'trophies'
-
+    login_url = 'login'
 
 

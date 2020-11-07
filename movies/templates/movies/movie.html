@@ -18,7 +18,7 @@
 <p>Watched on <b> {{ movie.date_watched|date:'M d, Y'}}</b></p>
 <p>Please update your details for <b>{{ movie.name }}</b>:</p>
 
-<form method="post" action="{% url 'movies:add_details' movie.pk %}" class="form">
+<form method="post" action="{% url 'movies:add_details' movie.pk %}?next={{ request.path|urlencode }}" class="form">
   
   {% csrf_token %}
   {% bootstrap_form form %}
@@ -29,13 +29,8 @@
 </form>
 
 {% else %}
-Shown in Round: <b>{{ game_round.round_number }}</b><br>  
-Watched on <b> {{ movie.date_watched|date:'M d, Y'}}</b><br> 
-  {% if user_movie_details.is_user_movie %}
-    This movie was <i>your</i> choice, oh my.</p>
-  {% else %}
-    This movie was chosen by another user, phew. </p>
-  {% endif %}
+Shown in Round: <span class="float-right">{{ game_round.round_number }}</span><br>  
+Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</span><br> 
 
 <br>
 <!-- note: get_ and _display are prepended / appended to the actual field names below, because
@@ -47,21 +42,28 @@ Watched on <b> {{ movie.date_watched|date:'M d, Y'}}</b><br>
   <ul class="pl-0" style="list-style-type:none">
       <li>Seen Previously: <span class="float-right">{{ user_movie_details.get_seen_previously_display }}</span></li>
       <li>Heard of Before: <span class="float-right">{{ user_movie_details.get_heard_of_display }}</span></li>
-    {% if not user_movie_details.is_user_movie %}
-      <li>Your User Guess: <span class="float-right">{{ user_movie_details.user_guess.username }}</span></li>
-    {% endif %}
+      <li>Your User Guess: <span class="float-right">
+      {% if user_movie_details.is_user_movie %}
+        You chose this!
+      {% else %}
+        {{ user_movie_details.user_guess.username }}
+      {% endif %}</span></li>
       <br>
       <li>Deep Hurting Score: <span class="float-right">{{ user_movie_details.get_star_rating_display }}</span></li>
 
     {% if user_movie_details.comments %}
-      <li>Your Comments: <span class="float-right">{{ user_movie_details.comments }}</span></li>
+      <br>
+      <li class="mb-2">Your Comments:</li>
+      <span class="pl-3">"{{ user_movie_details.comments }}" </span><br>
+      <span class="pl-4"> - {{ user_movie_details.user.username }}</span>
     {% endif %}
   </ul>
 
   <br>
 
   {% if not game_round.round_completed %}
-  <p><span class="float-right"><a href="{% url 'movies:update_details' user_movie_details.pk %}"><b>Edit Details</b></a></span></p>
+  <p>Change your mind?<br>
+  <a href="{% url 'movies:update_details' user_movie_details.pk %}"><b>Edit Details</b></a></p>
   {% endif %}
 
 <!-- do a bool check here to see if the round that this movie belongs to is complete or not, if it is, display the results -->
@@ -82,13 +84,10 @@ Watched on <b> {{ movie.date_watched|date:'M d, Y'}}</b><br>
         </ul>
 
 
-    {% else %}
-    <br>
-    <p>Details for this movie will be posted after the Round is complete.</p>
     {% endif %}
-
 <br>
-<span class="float-right"><a href="{{ request.GET.next }}"><b>Go Back</b></span></a></p>
+<p><span class="float-right"><a href="{% url 'movies:index' %}"><b>Back to Round</b></a></span></p>
+<!-- <p><span class="float-right"><a href="{{ request.GET.next }}"><b>Go Back</b></span></a></p> -->
 
 {% endif %}
 
