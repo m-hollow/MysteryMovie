@@ -25,7 +25,7 @@
 
 {% block content %}
 
-<!-- <p>Started: 
+<!-- <p>Started:
 {% if current_round %}
 {{ current_round.date_started }}
 {% else %}n/a
@@ -63,7 +63,7 @@ three p tags, this seems to work fine. -->
     {% endfor %}
     </ul>
 
-    {% if not current_round.round_completed %}
+    {% if not current_round.round_completed and user.userprofile.is_mmg_admin %}
       <a href="{% url 'movies:add_movie' %}"><span class="float-right"><b>+ Add Movie</b></span></a>
     {% endif %}
 

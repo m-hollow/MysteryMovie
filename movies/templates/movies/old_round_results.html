@@ -23,9 +23,9 @@
       <li><b>{{ urd.rank.rank_int }}.</b>&nbsp;&nbsp;<a href="{% url 'movies:user_results' urd.pk %}?next={{ request.path|urlencode }}">{{ urd.user.username }}</a><span class="float-right">{{ urd.total_points }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ urd.movie_average_rating }}</small></span></li>
     {% endfor %}
   </ul>
-  
+
   <br>
-  <p>Click a Participant's name to see detailed results for that user.</p>
+  <p>Click a Participant's name above to see detailed results for that user.</p>
 
   <br>
 
@@ -37,13 +37,16 @@
   {% endfor %}
   </ul>
 
+  <br>
+  <p>Click a Movie title above to see detailed results for that movie.</p>
+
 <br>
 
 <h5 class="border-bottom pb-2 mb-4">Other Details</h5>
   <ul class="pl-0" style="list-style-type:none">
     <li>Date Round Started:<span class="float-right">{{ game_round.date_started}}</span></li>
     <li>Date Round Concluded:<span class="float-right">{{ game_round.date_finished }}</span></li>
-    
+
     <br>
 
     <li>Most Loathed Movie:<span class="float-right">{{ most_hated_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>

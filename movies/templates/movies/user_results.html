@@ -21,13 +21,13 @@
 
   <li>Movie Choice & Avg Rating:<span class="float-right">{{ participant_movie.name }} / {{ movie_avg_rating }}</span></li>
 
-  <li>Total Correct Movie-User Guesses:<span class="float-right">{{ user_round_details.correct_guess_points }}</span></li>
+  <li>Total Correct Movie-User Guesses:<span class="float-right">{{ guess_points|length }}</span></li>
 
 </ul>
 
 <br>
 
-<h5 class="border-bottom pb-2 mb-3">Points Earned For Correct Guesses<span class="float-right"><small><i>{{ guess_points|length }} Total</i></small></span></h5>
+<h5 class="border-bottom pb-2 mb-3">Points Earned For Correct Guesses<span class="float-right"><small><i>{{ guess_points_total }} Total</i></small></span></h5>
 <ul class="pl-3" style='list-style-type:none'>
     {% for point in guess_points %}
       <li>+2&nbsp;&nbsp;&nbsp;{{ point.point_string }}</li>

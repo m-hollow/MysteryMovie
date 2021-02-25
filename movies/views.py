@@ -45,7 +45,7 @@ class IndexPageView(LoginRequiredMixin, ListView):
 
         if current_round:
             current_round_participants = current_round.participants.all()   # note the.all() on the connection !
-        
+
             for p in current_round_participants:
                 profile = UserProfile.objects.get(user=p)
                 current_round_pairs.append((p, profile))
@@ -99,7 +99,7 @@ class ResultsView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # find the game round object is that has active = True (only one will ever have this value)
         if GameRound.objects.filter(active_round=True).exists():
             current_round = GameRound.objects.filter(active_round=True).last()
@@ -113,13 +113,13 @@ class ResultsView(LoginRequiredMixin, TemplateView):
 
             # look for places to use select_related / prefect_related in here...
 
-            current_round_movies = current_round.movies_from_round.all()  # uses reverse manager defined in Movie model
+            current_round_movies = current_round.movies_from_round.order_by('-date_watched')  # uses reverse manager defined in Movie model
             current_round_participants = current_round.participants.all() # get User objects related to current GameRound
 
             if not current_round.round_completed:
 
                 round_concluded = False
-                user_round_details = None  # we only need this if round has ended / results updated    
+                user_round_details = None  # we only need this if round has ended / results updated
 
                 total_details_for_round = (current_round_participants.count() * current_round_movies.count())
                 details_received = 0
@@ -129,10 +129,10 @@ class ResultsView(LoginRequiredMixin, TemplateView):
                 for movie in current_round_movies:
 
                     round_progress_status[movie.name] = {
-                        'submitted':[], 
+                        'submitted':[],
                         'incomplete': [],
                     }
-                    
+
                     for participant in current_round_participants:
 
                         if UserMovieDetail.objects.filter(movie=movie, user=participant).exists():
@@ -157,13 +157,14 @@ class ResultsView(LoginRequiredMixin, TemplateView):
                 # collect the UserRoundDetail objects for current round
                 # with the new fields on the URD model (total points, rank) we should be able to display the complete
                 # results of the round. Do we need the UMD objects for any reason ?
-                user_round_details = UserRoundDetail.objects.filter(game_round=current_round).order_by('rank')
+                user_round_details = UserRoundDetail.objects.filter(game_round=current_round).order_by('rank') #interestingly, this works, but 'rank' is a RoundRank object...
+                                                                                                               #which begs the question, what is this actually ordering by??
 
 
                 # this is my workaround for getting the two movies with the lowest and highest average ratings
                 # it should absolutely be possible to do this in a django query instead
                 # the issue why I can't, currently:
-                
+
                 # 1. average_rating on the movie object is a @property, which can't be used in django queries;
                 # if it wasn't a property, I'd just query the movies, do order_by('avg_rating') and grab .first() and .last()
 
@@ -175,22 +176,30 @@ class ResultsView(LoginRequiredMixin, TemplateView):
                 most_enjoyed_movie = sorted_avg_ratings_list[-1][1]
 
                 # need to package user objects with their chosen movie, to loop through to show who chose what
-                
+
+                # user_movie_pairs = []
+                # for participant in current_round_participants:
+                #     # alternate approach: Table-level query; yields identical results
+                #     #p_movie = Movie.objects.get(game_round=current_round, usermoviedetail__user=participant, usermoviedetail__is_user_movie=True)
+                #     p_movie = participant.related_movies.get(game_round=current_round, usermoviedetail__is_user_movie=True)
+
+                #     user_movie_pairs.append((participant, p_movie))
+
+                # alternate approach to above: loop through movies instead of participants to build user_movie_pairs; the movies have already been
+                # sorted by date, so this will preserve the 'most recent at top' ordered display when printing user-movie pairs on the page
+
                 user_movie_pairs = []
-                for participant in current_round_participants:
-                    # alternate approach: Table-level query; yields identical results
-                    #p_movie = Movie.objects.get(game_round=current_round, usermoviedetail__user=participant, usermoviedetail__is_user_movie=True)
-                    p_movie = participant.related_movies.get(game_round=current_round, usermoviedetail__is_user_movie=True)
+                for movie in current_round_movies:
+                    p_who_chose = UserMovieDetail.objects.get(movie=movie, is_user_movie=True).user # .user is critical! get user, not umd object
 
-                    user_movie_pairs.append((participant, p_movie))
-
+                    user_movie_pairs.append((p_who_chose, movie))
 
                 context['most_hated_score'] = sorted_avg_ratings_list[0][0]
                 context['most_enjoyed_score'] = sorted_avg_ratings_list[-1][0]
 
                 context['most_hated_movie'] = most_hated_movie
                 context['most_enjoyed_movie'] = most_enjoyed_movie
-                
+
                 context['user_movie_pairs'] = user_movie_pairs
 
                 number_needed_details = None
@@ -212,7 +221,7 @@ class ResultsView(LoginRequiredMixin, TemplateView):
 
 
         # get previous game round objects, to provide links to view their results at bottom of main Results page
-        previous_game_rounds = GameRound.objects.filter(active_round=False, round_completed=True)
+        previous_game_rounds = GameRound.objects.filter(active_round=False, round_completed=True).order_by('-round_number')
 
         # weed through these and see what is / isn't actually getting used; I think round_movies is useless...
         context['previous_game_rounds'] = previous_game_rounds
@@ -260,8 +269,10 @@ class UserResultsView(LoginRequiredMixin, DetailView):
         disliked_points = self.object.points_earned.filter(point_type='disliked')
 
         movie_points_total = (unseen_points.count() + known_points.count() + liked_points.count() + disliked_points.count())
+        guess_points_total = (guess_points.count() * 2)
 
         context['movie_points_total'] = movie_points_total
+        context['guess_points_total'] = guess_points_total
         context['guess_points'] =  guess_points
         context['unseen_points'] = unseen_points
         context['known_points'] = known_points
@@ -354,9 +365,9 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
     # no longer using this, no need for it now
     def return_winners_from_tie(self, tuple_list):
-        
+
         winning_tuples = sorted(tuple_list, key=lambda x : x[1], reverse=True)
-        
+
         # return tuples for gold and silver, bronze will be assigned None
         if len(winning_tuple) == 2:
             return winning_tuple[0], winning_tuple[1], None
@@ -372,21 +383,21 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         total_point_dict = {}
 
         for participant, results in point_queue.items():
-            total_points_for_p = (len(results['points_by_guess']) + len(results['points_by_movie_known']) + 
-                len(results['points_by_movie_unseen']) + len(results['points_by_movie_liked']) + 
+            total_points_for_p = ((len(results['points_by_guess']) * 2) + len(results['points_by_movie_known']) +
+                len(results['points_by_movie_unseen']) + len(results['points_by_movie_liked']) +
                 len(results['points_by_movie_disliked']))
 
             p_obj = User.objects.get(username__icontains=participant)
             p_movie = p_obj.related_movies.get(game_round=self.object, usermoviedetail__is_user_movie=True)
-            avg_rating = p_movie.average_rating  # this causes a fail right now on 
+            avg_rating = p_movie.average_rating  # this causes a fail right now on
 
             total_point_dict[participant] = [total_points_for_p, avg_rating]
-        
+
         # the dict created above has participant name as key, value is a list, first val in list is point total, second is avg movie score
         # now we sort the results of the dict we just built
 
         ranked_results = {k: v for k, v in sorted(total_point_dict.items(), reverse=True, key=lambda x : x[1])}
-        
+
         # prepend an int value to each list, denoting the final rank value of that participant key
         r = 1
         for key, value in ranked_results.items():
@@ -405,17 +416,17 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
     # this method has been replaced by get_ranked_results and is no longer used
     def total_points_dict_builder(self, point_queue):
-        
+
         total_point_dict = {}
 
         for participant, results in point_queue.items():
-            total_points_for_p = (len((results['points_by_guess']) * 2) + len(results['points_by_movie_known']) + 
-                len(results['points_by_movie_unseen']) + len(results['points_by_movie_liked']) + 
+            total_points_for_p = (len((results['points_by_guess']) * 2) + len(results['points_by_movie_known']) +
+                len(results['points_by_movie_unseen']) + len(results['points_by_movie_liked']) +
                 len(results['points_by_movie_disliked']))
 
             total_point_dict[participant] = total_points_for_p
 
-        # sort the dictionary so key-val pair with highest value is first (descending). this requires rebuilding the 
+        # sort the dictionary so key-val pair with highest value is first (descending). this requires rebuilding the
         # sorted list of tuples returned by sorted() into a new dictionary, using a dictionary comprehension:
 
         final_dict = {k: v for k, v in sorted(total_point_dict.items(), key=lambda x: x[1], reverse=True)}
@@ -528,14 +539,14 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # access sesssions data for the dictionary of round results
         point_queue = self.request.session['point_queue']
         ranked_results = self.request.session['ranked_results']
-        
+
 
         this_user = self.object.user
 
         user_total_points = ranked_results[this_user.username][1]
 
 
-        initial['correct_guess_points'] = len(point_queue[this_user.username]['points_by_guess'])
+        initial['correct_guess_points'] = (len(point_queue[this_user.username]['points_by_guess']) * 2)
         initial['known_movie_points'] = len(point_queue[this_user.username]['points_by_movie_known'])
         initial['unseen_movie_points'] = len(point_queue[this_user.username]['points_by_movie_unseen'])
         initial['liked_movie_points'] = len(point_queue[this_user.username]['points_by_movie_liked'])
@@ -613,7 +624,7 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                 PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='known', point_string=point_string)
         else:
             pass
-                    
+
         if this_users_points['points_by_movie_unseen']:
             for point_dict in this_users_points['points_by_movie_unseen']:
                 point_value = point_dict['point_value']
@@ -621,7 +632,7 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                 PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='unseen', point_string=point_string)
         else:
             pass
-            
+
         if this_users_points['points_by_movie_liked']:
             for point_dict in this_users_points['points_by_movie_liked']:
                 point_value = point_dict['point_value']
@@ -629,7 +640,7 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                 PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='liked', point_string=point_string)
         else:
             pass
-            
+
         if this_users_points['points_by_movie_disliked']:
             for point_dict in this_users_points['points_by_movie_disliked']:
                 point_value = point_dict['point_value']
@@ -637,7 +648,7 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                 PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='disliked', point_string=point_string)
         else:
             pass
-            
+
         return super().form_valid(form) # call to super() saves the form, but not the user_profile we modify in the view
 
 
@@ -654,7 +665,7 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         this_user_name = self.object.user.username # huge previous bug: you did self.request.user here, which is NOT the user you want
         this_user_total_points = ranked_results[this_user_name][1]  # this is just an int value, index 1 (point total) of the list value
 
-        # can we remove the above total points variable, now that we are storing that data in the URD itself? 
+        # can we remove the above total points variable, now that we are storing that data in the URD itself?
         # just print it from there, if you need it; then this method won't even need to access ranked_results at all...
 
         # extract this users points from the point_queue
@@ -757,7 +768,7 @@ class OldRoundView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
 
         round_movies = self.object.movies_from_round.all()  # uses reverse manager defined in Movie model
-        round_participants = self.object.participants.all() 
+        #round_participants = self.object.participants.all() # not used now, since we loop through movies instead of participants to build user_movie_pairs
 
 
         user_round_details = UserRoundDetail.objects.filter(game_round=self.object).order_by('rank')
@@ -770,24 +781,29 @@ class OldRoundView(LoginRequiredMixin, DetailView):
         most_enjoyed_movie = sorted_avg_ratings_list[-1][1]
 
         # need to package user objects with their chosen movie, to loop through to show who chose what
-        
-        user_movie_pairs = []
-        for participant in round_participants:
-            
-            p_movie = participant.related_movies.get(game_round=self.object, usermoviedetail__is_user_movie=True)
 
-            user_movie_pairs.append((participant, p_movie))
+        # user_movie_pairs = []
+        # for participant in round_participants:
+
+        #     p_movie = participant.related_movies.get(game_round=self.object, usermoviedetail__is_user_movie=True)
+
+        #     user_movie_pairs.append((participant, p_movie))
+
+        user_movie_pairs = []
+        for movie in round_movies:
+            p_who_chose = UserMovieDetail.objects.get(movie=movie, is_user_movie=True).user # .user is critical! get user, not umd object
+
+            user_movie_pairs.append((p_who_chose, movie))
 
 
         context['user_round_details'] = user_round_details
-
 
         context['most_hated_score'] = sorted_avg_ratings_list[0][0]
         context['most_enjoyed_score'] = sorted_avg_ratings_list[-1][0]
 
         context['most_hated_movie'] = most_hated_movie
         context['most_enjoyed_movie'] = most_enjoyed_movie
-        
+
         context['user_movie_pairs'] = user_movie_pairs
 
 
@@ -817,7 +833,7 @@ class MovieDetail(LoginRequiredMixin, DetailView):
         else:
             user_movie_details = None
 
-        # we simply build the form we want here, and pass it in the context; this works, even though this CBV is a 
+        # we simply build the form we want here, and pass it in the context; this works, even though this CBV is a
         # DetailView, not an edit view. When the form is processed, a different view will be called, process_details.
         form = UserMovieDetailForm(current_user=self.request.user)
         #form.fields['user_guess'].queryset = User.objects.filter(related_game_rounds=self.object.game_round) # this works! note: this is equivalent to movie.game_round
@@ -835,13 +851,36 @@ class MovieDetail(LoginRequiredMixin, DetailView):
             user_that_chose_movie = self.object.users.get(usermoviedetail__is_user_movie=True) # only one person marked True for *this specific movie*
             # same here for avg rating, only applies to a completed round:
             movie_average_rating = self.object.average_rating
+
+            # get all UserMovieDetail objects for this movie so we can extract the Quotes and Ratings
+            # use this version if you want to exclude the logged in user from results:
+            #umds = UserMovieDetail.objects.filter(movie=self.object).exclude(user=user)
+            umds = UserMovieDetail.objects.filter(movie=self.object)
+            comments_for_movie = []
+            ratings_for_movie = []
+            for umd in umds:
+                username = umd.user.username
+                rating = umd.star_rating
+                rating_dict = {'username': username, 'rating': rating}
+                ratings_for_movie.append(rating_dict)
+                if umd.comments:
+                    comment = umd.comments
+                    comment_dict = {'username': username, 'comment': comment}
+                    comments_for_movie.append(comment_dict)
+                else:
+                    pass
+
         else:
             user_that_chose_movie = None
             movie_average_rating = None
+            comments_for_movie = None
+            ratings_for_movie = None
 
             # Table-Level query to retreive same object above (user_that_chose_movie):
             #user_that_chose_movie = UserMovieDetail.objects.get(movie=uself.object, is_user_movie=True).user
 
+        context['movie_comments'] = comments_for_movie
+        context['movie_ratings'] = ratings_for_movie
         context['movie_avg_rating'] = movie_average_rating
         context['user_that_chose_movie'] = user_that_chose_movie
         context['game_round'] = game_round
@@ -878,11 +917,32 @@ class OldMovieDetail(LoginRequiredMixin, DetailView):
         if game_round.round_completed:
             user_that_chose_movie = self.object.users.get(usermoviedetail__is_user_movie=True)
             movie_average_rating = self.object.average_rating
+
+            # get all UserMovieDetail objects for this movie so we can extract the Quotes
+            # use this version if you want to exclude logged in user
+            #umds = UserMovieDetail.objects.filter(movie=self.object).exclude(user=user) # could do a select_related on user here...
+            umds = UserMovieDetail.objects.filter(movie=self.object)
+            comments_for_movie = []
+            ratings_for_movie = []
+            for umd in umds:
+                username = umd.user.username
+                rating = umd.star_rating
+                rating_dict = {'username': username, 'rating': rating}
+                ratings_for_movie.append(rating_dict)
+                if umd.comments:
+                    comment = umd.comments
+                    comment_dict = {'username': username, 'comment': comment}
+                    comments_for_movie.append(comment_dict)
+                else:
+                    pass
         else:
             user_that_chose_movie = None
             movie_average_rating = None
+            comments_for_movie = None
+            ratings_for_movie = None
 
-
+        context['movie_comments'] = comments_for_movie
+        context['movie_ratings'] = ratings_for_movie
         context['movie_avg_rating'] = movie_average_rating
         context['user_that_chose_movie'] = user_that_chose_movie
         context['game_round'] = game_round
@@ -898,18 +958,18 @@ def process_details(request, movie_pk):
     """This is when the UMD is being created for the first time, as opposied to modifying existing record"""
     if request.method == 'POST':
 
-        # verify that this usage of select_related is working as desired 
+        # verify that this usage of select_related is working as desired
         movie = Movie.objects.select_related('game_round').get(pk=movie_pk)
 
         # game_round is cached by select_related above, so this line does not perform a query on the db itself:
         game_round = movie.game_round    # connects to a single specific game_round instance
 
-        # this doesn't really 'need' the current_user argument (in the sense that it's required, but won't be used), 
+        # this doesn't really 'need' the current_user argument (in the sense that it's required, but won't be used),
         # as that is only used for how the form is displayed,
         # and this function is only a POST request, after the data is submitted; but, since the form constructor
         # is being called, and the __init__ method of the form includes an assigment using the current_user value,
         # you need to provide it here simply because its expected.
-        form = UserMovieDetailForm(data=request.POST, current_user=request.user) 
+        form = UserMovieDetailForm(data=request.POST, current_user=request.user)
 
         if form.is_valid():
             umd_object = form.save(commit=False)
@@ -919,7 +979,7 @@ def process_details(request, movie_pk):
 
             # this behavior is baffling, and seems to contradict the django docs (which say redirect() can
             # take a kwargs argument)...
-            #return redirect('movies:movie', kwargs={'pk': movie.pk, 'slug': movie.slug}) # doesn't work! 
+            #return redirect('movies:movie', kwargs={'pk': movie.pk, 'slug': movie.slug}) # doesn't work!
             #return redirect('movies:movie', pk=movie.pk, slug=movie.slug)  # this works, though...
             return redirect(movie)  # this works, using get_absolute_url of movie object
 
@@ -984,10 +1044,7 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
 
 class MembersView(LoginRequiredMixin, ListView):
     #model = get_user_model()
-    # I want to order by total points, but that is a property so I can't; which means we need
-    # a static, non-property value that holds the total points, and is computed by a method in
-    # the UserProfile model, and that method gets called.... when? here? somewhere else?
-    queryset = User.objects.order_by('userprofile__total_correct_guess_points')
+    queryset = User.objects.order_by('-userprofile__rounds_won').exclude(username__icontains='mmg_admin')
     template_name = 'movies/members.html'
     context_object_name = 'members'
 
@@ -1009,8 +1066,10 @@ class MembersView(LoginRequiredMixin, ListView):
                 user_profile_pairs.append((member, profile))
 
         # retrieve Users through the paticipants attribute of GameRound object (M2M)
-        if current_round:
-            current_round_participants = current_round.participants.all()   # note the.all() on the connection !
+
+        # we aren't using this stuff in the members template right now, so I'm commenting it out...
+        #if current_round:
+        #    current_round_participants = current_round.participants.all()   # note the.all() on the connection !
 
         # TEST THESE OUT, THEY AREN'T CURRRENTLY USED, BUT I WANT TO CONFIRM HOW TO FILTER DOWN THE
         # DESIRED OBJECTS IN THE QUERYSET USING THE FOLLOWING APPROACHES...
@@ -1024,14 +1083,15 @@ class MembersView(LoginRequiredMixin, ListView):
         # could you just shorten it by providing the game round object itself?
         #crp3 = context['members'].filter(gameround=current_round)
 
-            for p in current_round_participants:
-                profile = UserProfile.objects.get(user=p)
-                current_round_pairs.append((p, profile))
+            # not in use right now, commented out...
+            # for p in current_round_participants:
+            #     profile = UserProfile.objects.get(user=p)
+            #     current_round_pairs.append((p, profile))
 
 
-        context['current_round'] = current_round
+        #context['current_round'] = current_round
         context['user_profile_pairs'] = user_profile_pairs
-        context['current_round_pairs'] = current_round_pairs
+        #context['current_round_pairs'] = current_round_pairs
 
         return context
 

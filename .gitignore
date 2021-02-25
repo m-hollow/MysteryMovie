@@ -1,8 +1,10 @@
-__pycache__
+__pycache__/
 *.pyc
+*.pot
+*.log
 /static
 media
 mmg_ve
 .DS_Store
 .env
-
+.venv

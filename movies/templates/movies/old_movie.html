@@ -12,8 +12,8 @@
 
 {% block content %}
 
-Shown in Round: <span class="float-right">{{ game_round.round_number }}</span><br>  
-Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</span><br> 
+Shown in Round: <span class="float-right">{{ game_round.round_number }}</span><br>
+Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</span><br>
 
 <br>
 <!-- note: get_ and _display are prepended / appended to the actual field names below, because
@@ -44,24 +44,42 @@ Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</s
 
   <br>
 
-    <br>
-    
     <h5 class="border-bottom pb-2 mb-4">Movie Details - Round Completed</h5>
 
     <ul class="pl-0" style="list-style-type:none">
         <li>This movie was chosen by:<span class="float-right">{{ user_that_chose_movie.username }}</span></li>
         <li>The average rating for this movie was:<span class="float-right">{{ movie_avg_rating }}</span></li>
 
-        <li>Users who correctly blamed <b>{{ user_that_chose_movie.username }}</b>:<span class="float-right">...</span></li>
+        <!--<li>Users who correctly blamed <b>{{ user_that_chose_movie.username }}</b>:<span class="float-right">...</span></li>-->
+        <!--<br>-->
+        <!--<li># of Users who had already seen it:</li>-->
+        <!--<li># of Users who had never heard of it:</li>-->
+
         <br>
-        <li># of Users who had already seen it:</li>
-        <li># of Users who had never heard of it:</li>
+        <li class="mb-3"><h5>Deep Hurting Scores:</h5></li>
+          <ul class="pl-0" style="list-style-type:none">
+            {% for rating_dict in movie_ratings %}
+            <li>{{ rating_dict.username }}<span class="float-right">{{ rating_dict.rating }}</span></li>
+            {% endfor %}
+          </ul>
+
+        {% if movie_comments %}
+        <br>
+        <li class="mb-3"><h5>Comments:</h5></li>
+            <ul class="pl-3" style="list-style-type:none">
+                {% for comment_dict in movie_comments %}
+                <li class="mb-3">"{{ comment_dict.comment }}"<br>&nbsp;&nbsp;&nbsp;- <i>{{ comment_dict.username }}</i></li>
+                {% endfor %}
+            </ul>
+        </li>
+        {% endif %}
     </ul>
 
 <br>
 
 <p><span class="float-right"><a href="{{ request.GET.next }}"><b>Go Back</b></span></a></p>
 
+<br>
 
 
 {% endblock content %}

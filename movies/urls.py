@@ -1,14 +1,14 @@
 from django.urls import path
 from django.views.generic.base import RedirectView
 
-from .views import (IndexPageView, MovieDetail, OldMovieDetail, MembersView, AddMovieView, 
+from .views import (IndexPageView, MovieDetail, OldMovieDetail, MembersView, AddMovieView,
     process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundView, ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, SettingsView, UserResultsView)
 
 app_name = 'movies'
 urlpatterns = [
     # Home Page
-    path('', RedirectView.as_view(url='/users/login/')), # base url redirects to default auth login at users/login/
-    path('index/', IndexPageView.as_view(), name='index'),
+    #path('', RedirectView.as_view(url='/users/login/')), # base url redirects to default auth login at users/login/
+    path('', IndexPageView.as_view(), name='index'),
     path('movie/<int:pk>-<str:slug>/', MovieDetail.as_view(), name='movie'),
     path('old_movie/<int:pk><str:slug>/', OldMovieDetail.as_view(), name='old_movie'), # distinguish between a movie in current round & previous round
     path('members/', MembersView.as_view(), name='members'),

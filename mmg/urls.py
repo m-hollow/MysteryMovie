@@ -28,3 +28,12 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+    print('BASE_DIR is set as:  {}'.format(settings.BASE_DIR))
+    print('STATIC ROOT is set as: {}'.format(settings.STATIC_ROOT))
+    print('STATIC_URL is set as: {}'.format(settings.STATIC_URL))
+
+    print('')
+    print('Values stored in STATICFILES_DIRS list: ')
+    for i in settings.STATICFILES_DIRS:
+        print(i)

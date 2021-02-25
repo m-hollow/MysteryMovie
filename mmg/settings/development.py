@@ -20,8 +20,25 @@ env = environ.Env(
 environ.Env.read_env()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
 
+# IMPORTANT!
+# NOTE: I had to add one additional .parent to the line below, because I moved this settings file (development.py)
+# into a new folder, 'settings'. BASE_DIR is set relative to the path where this file exists; by default,
+# it expects to go back two levels, so the final dir in the path is the primary project folder, e.g. MMG.
+# but since I have manually changed the location of the settings file and nested it one level deeper, we have
+# to set this relatively by adding one more .parent --if you don't do this, the BASE_DIR path ends at MMG/mmg instead of
+# at MMG
+# the relative path goes like this:   development.py > to first parent > settings > to second parent > mmg (dir)
+# but then when the static files get created, they are screwed up
+# NOTE: you'll need to do this in the production.py file as well! since it is also nested one level deeper
+
+# Summary: when you change the location of the settings file used by django, you are also changing the path
+# stored in BASE_DIR, because this path is assigned *relative to where the settings file is stored*.
+
+# my solution could conceivably have side effects, so remember that this change was made...
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent   # see above explanations. django default of this line
+                                                           # has two (2) .parent total; I have added a third
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
@@ -138,16 +155,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
+
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'),]  # static files in local development
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')     # static files in production
 STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
-]
+    ]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 # My settings
 LOGIN_URL = 'login'   # used by django to redirect to login when @login_required gets unauthorized access
