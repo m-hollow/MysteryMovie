@@ -809,6 +809,9 @@ class OldRoundView(LoginRequiredMixin, DetailView):
 
         return context
 
+# new work for Movie page (and old movie page) -- matrix of guesses, showing all users on both axis, and a mark for who they guessed
+# chose this movie (that is, the movie of the movie detail page you are on). the mark is an icon with two possibilities: correct or
+# incorrect guess.
 
 class MovieDetail(LoginRequiredMixin, DetailView):
     model = Movie
@@ -1041,6 +1044,20 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
     # UpdateView takes care of passing the to-be-updated object instance to the ModelForm constructor
     # you'd only need to do that if you were writing this as a non-CBV function.
 
+
+# new work to do: vastly expand this members view function and its corresponding html template to display 'all time' rankings
+# for users, gathering scores / rankings across all game rounds, presented as lists of ranked users. e.g. 'best movie rankings',
+# 'worst movie rankings' (both of these could display average rating of all of each user's movie choices, or average by round, etc);
+# 'correct guesses' showing how many people they guessed correctly by round (and ranked by total), etc.
+
+# note: you can write code in here to calculate the values necessary to print out the above mentioned lists; but note that another
+# approach is to keep an ongoing record of all such details stored in the UserProfile records, which was sort of your original intent
+# with UserProfile. however, implementing that now won't work retro-actively -- the first three rounds of data won't have been updated
+# for each user in their UserProfile. so for now just do the work here, but an 'ideal' scenario would be that at conclusion of every
+# round, the UserProfile is updated with all relevant new info, so then all THIS view would need to do is simply reach into the profiles
+# and grab that data, and rank it; the calculations and related object retreival would alreayd have been done.
+# though: just write a method of the UserProfile that runs the calculations for any existing users, including previous round results.
+# this method will "make up to date" all the fields / attributes of the UserProfile, so the above issue is moot.
 
 class MembersView(LoginRequiredMixin, ListView):
     #model = get_user_model()

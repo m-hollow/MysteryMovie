@@ -41,6 +41,21 @@ class GameRound(models.Model):
         super().save(*args, **kwargs)
 
 
+# WIP, may discard this idea entirely...
+# class GlobalRank(models.Model):
+
+#     title = models.CharField(max_length=200)
+#     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+#     last_updated = models.DateTimeField()
+
+#     # example records for current global ranks, calculated across all rounds:
+
+#     # user who chose overall highest rated movies
+#     # user who chose overall lowest rated movies
+#     # user who has made most correct guesses matching users to their movies
+#     # user who has made the least correct guesses
+#     # user who has won the most rounds
+
 
 class RoundRank(models.Model):
     rank_int = models.PositiveSmallIntegerField(default=0, unique=True)
@@ -197,6 +212,47 @@ class UserProfile(models.Model):
                 total += trophy.point_value
 
         self.total_trophy_points = total
+
+    def update_all_data():
+        """A method that scans through all users in all game rounds and updates their profile attributes with 'all-time' values"""
+        pass
+
+        # updating the total... fields above will simply mean looping through UserRoundDetail objects and extracting values as necessary.
+        # remember, a given class / Model doesn't necessarily (and perhaps shouldn't) need to access another model through a Table-level connection,
+        # you should go through the related models as defined in the fields of this class. related models are already filtered, in the sense that you
+        # are only accessing models instances connected to this model instance.
+        # so, to get the relevant URDs inside this class, you'd acccess this classes' user field.
+        # but wait, is there some reason we can't just do a table-level query on URD itself, passing the user as an argument? so we get actual URDs returned?
+        # going through user gets as user objects, not URDs -- it's probably still possible to access URDs through the user (user has a reverse connection to urd,
+        # so we can get there with a reverse manager) but is that really 'better' than just calling the Table itself? 
+
+        # NOTE OF POSSIBLE EXCEPTION TO ABOVE: model Managers are meant to work on a table-level, so it's possible that in a manager you'd define
+        # table-level queries / extractions that don't relate to the instance-related objects. 
+
+        # get a queryset of all UserRoundDetail objects for the user of this userprofile:
+        user_urds = self.user.userrounddetail_set.all()
+
+        # alternatively, do this from a Table-level query. is the above preferable because it 
+        # gathers the desired objects through the related object? or is accessing through the
+        # table like this ok to do? I know it's totally OK to do in a view, but this is a Model method...
+        # so that's my big Q: inside a Model method (as opposed to a view)  is it ok to to do Table-level
+        # query? Note that in the model Managers section of the django docs, they say Table-level queries
+        # are handled by Managers and record-level queries are handled by methods; does that suggest
+        # the above is the 'correct' approach? 
+
+        user_urds = UserRoundDetail.objects.filter(user=self.user)
+
+        # even if technically Managers are "for" Table-level queries, is the above still perhaps fine to do?
+        # because frankly it's a clearer syntax than the through-related query above...
+
+        # next step: loop through urds to retrieve values, keep a running total in a dictionary,
+        # then update this object instance (UserProfile) with the results in the dict, and save it.
+
+
+# the methods to calculate a given UserProfile's all-time points would be record-level (that is, per-user instance), so they are methods on the Class;
+# the methods to return a group of UsersProfiles ranked by their attributes are Table-Level, sorting and returning a queryset of records, so those methods
+# should be custom Manager methods or additional Managers -- in both cases, the Class manager handles the behavior at the Table level.
+
 
 
 class UserMovieDetail(models.Model):

@@ -1,8 +1,10 @@
-__pycache__/
+__pycache__
 *.pyc
 *.pot
 *.log
 /static
+/staticfiles
+/fixtures
 media
 mmg_ve
 .DS_Store
