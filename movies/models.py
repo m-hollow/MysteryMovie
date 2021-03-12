@@ -4,6 +4,8 @@ from django.urls import reverse
 from django.utils.text import slugify
 from django.db.models import F, Max, Min, Avg
 from datetime import date
+from django.db.models import Avg, Max, Min, Count, Q
+
 
 
 
@@ -41,20 +43,45 @@ class GameRound(models.Model):
         super().save(*args, **kwargs)
 
 
-# WIP, may discard this idea entirely...
-# class GlobalRank(models.Model):
+class AllTimeScore(models.Model):
+    """Stores current all-time ranks for specific areas, as tabulated every time a Round is concluded; e.g. 'best guesser', 'worst movie chooser'"""
 
-#     title = models.CharField(max_length=200)
-#     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-#     last_updated = models.DateTimeField()
+    # each record is a "timestamp" of when the last calculation was run. A given record says: "at time of calculation on date X, here are the 
+    # all-time-standings per specific rank-type"
 
-#     # example records for current global ranks, calculated across all rounds:
+    date_created = models.DateTimeField(auto_now_add=True)
 
-#     # user who chose overall highest rated movies
-#     # user who chose overall lowest rated movies
-#     # user who has made most correct guesses matching users to their movies
-#     # user who has made the least correct guesses
-#     # user who has won the most rounds
+    most_rounds_won = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="all_time_rounds", null=True)
+    most_guess_points = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="all_time_guess")
+    most_liked_points = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="all_time_liked")
+    most_disliked_points = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="all_time_disliked")
+    most_seen_points = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="all_time_seen")
+    most_unseen_points = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="all_time_unseen")
+
+    def __str__(self):
+        return 'All-Time Results as tabulated on {}'.format(self.date_last_run)
+
+    # with this approach of having 'hard coded' the rank fields, we can write methods that update those fields meaningfully
+
+    # Question: given that a new record always represents the tabulation of results at that time, should the calculation code go into
+    # the save method rather than an additional custom method? Answer: Yes, that is the design principle of this table: any update to scores
+    # always represents A NEW RECORD IN THE TABLE. A method that updates the above fields for an existing record is pointless, we don't
+    # need to ever update those unless something went wrong in calculations and we needed to override results; any given record of this table
+    # will show the standings at the time that record was created. there is no "update" to an instance, we simply create a new record
+    # instead.
+
+    def save(self, *args, **kwargs):
+        """add logic here"""
+        
+        # first, calculate all the #1 placehodlers for each field-rank at time of new record creation; use aggregates to do that?
+        # you will simply compute that by looking at all UserProfile objects, then grabbing the relevant user.
+
+        # then do self.most_rounds_won = result_here
+
+        # I guess the only remaining question is, what calls the constructor of this class? the view? that's bad -- that would create
+        # a record everytime the relevant page is rendered! It should be added as an Admin function in the admin page.
+
+        super().save(*args, **kwargs)
 
 
 class RoundRank(models.Model):
@@ -180,9 +207,7 @@ class UserProfile(models.Model):
     BOOL_CHOICES = ((True, 'Yes'), (False, 'Nope'))
 
     # overall points for the User -- includes ALL game rounds they participated in
-    # NOTE: in the current build, these are not being used or displayed.
-    # if you want to use them, you'll have to figure out where to implement an update
-    # to them in a bug-free manner
+    # updated by a call to the method update_all_data, which should be run whenever a round is concluded
     total_correct_guess_points = models.PositiveSmallIntegerField(default=0, null=True)
     total_known_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
     total_unseen_movie_points = models.PositiveSmallIntegerField(default=0, null=True)
@@ -213,40 +238,64 @@ class UserProfile(models.Model):
 
         self.total_trophy_points = total
 
-    def update_all_data():
-        """A method that scans through all users in all game rounds and updates their profile attributes with 'all-time' values"""
-        pass
+    def update_all_data(self):
+        """A method that scans through all urd objects for a user (profile) instance and updates relevant total points fields"""
 
-        # updating the total... fields above will simply mean looping through UserRoundDetail objects and extracting values as necessary.
-        # remember, a given class / Model doesn't necessarily (and perhaps shouldn't) need to access another model through a Table-level connection,
-        # you should go through the related models as defined in the fields of this class. related models are already filtered, in the sense that you
-        # are only accessing models instances connected to this model instance.
-        # so, to get the relevant URDs inside this class, you'd acccess this classes' user field.
-        # but wait, is there some reason we can't just do a table-level query on URD itself, passing the user as an argument? so we get actual URDs returned?
-        # going through user gets as user objects, not URDs -- it's probably still possible to access URDs through the user (user has a reverse connection to urd,
-        # so we can get there with a reverse manager) but is that really 'better' than just calling the Table itself? 
-
-        # NOTE OF POSSIBLE EXCEPTION TO ABOVE: model Managers are meant to work on a table-level, so it's possible that in a manager you'd define
-        # table-level queries / extractions that don't relate to the instance-related objects. 
-
-        # get a queryset of all UserRoundDetail objects for the user of this userprofile:
+        # there's no problem running this method multiple times, it won't screw up point totals, as it will simply re-calculate
+        # the values and (re)assign them to the relevant field; doing it over and over would just be pointless, but not destructive.
+    
+        # get all UserRoundDetail objects for user of this user profile instance:
         user_urds = self.user.userrounddetail_set.all()
 
-        # alternatively, do this from a Table-level query. is the above preferable because it 
-        # gathers the desired objects through the related object? or is accessing through the
-        # table like this ok to do? I know it's totally OK to do in a view, but this is a Model method...
-        # so that's my big Q: inside a Model method (as opposed to a view)  is it ok to to do Table-level
-        # query? Note that in the model Managers section of the django docs, they say Table-level queries
-        # are handled by Managers and record-level queries are handled by methods; does that suggest
-        # the above is the 'correct' approach? 
+        # two approaches -- one, loop through objects and sum totals, e.g., pure python code based on values retrieved from db;
+        # two, use database-level functions via django / sql:  aggregate and annotate as necessary using sum(), max(), etc.
 
-        user_urds = UserRoundDetail.objects.filter(user=self.user)
+        point_dict = {
+            'all_time_rounds': 0,
+            'all_time_guess': 0,
+            'all_time_known': 0,
+            'all_time_unseen': 0,
+            'all_time_liked': 0,
+            'all_time_disliked': 0,
+        }
 
-        # even if technically Managers are "for" Table-level queries, is the above still perhaps fine to do?
-        # because frankly it's a clearer syntax than the through-related query above...
+        for urd in user_urds:
+            point_dict['all_time_guess'] += urd.correct_guess_points
+            point_dict['all_time_known'] += urd.known_movie_points
+            point_dict['all_time_unseen'] += urd.unseen_movie_points
+            point_dict['all_time_liked'] += urd.liked_movie_points
+            point_dict['all_time_disliked'] += urd.disliked_movie_points
 
-        # next step: loop through urds to retrieve values, keep a running total in a dictionary,
-        # then update this object instance (UserProfile) with the results in the dict, and save it.
+            if urd.winner_bool:
+                point_dict['all_time_rounds'] += 1
+            else:
+                pass
+
+        self.rounds_won = point_dict['all_time_rounds']
+
+        self.total_correct_guess_points = point_dict['all_time_guess']
+        self.total_known_movie_points = point_dict['all_time_known']
+        self.total_unseen_movie_points = point_dict['all_time_unseen']
+        self.total_liked_movie_points = point_dict['all_time_liked']
+        self.total_disliked_movie_points = point_dict['all_time_disliked']
+
+
+        self.save()
+
+
+# note: the rounds_won field is currently updated by a view -- the conclude round view, I think. ultimately the update_all_data method
+# should include it's own code to correctly compute how many rounds a given P has won. We shouldnt rely on some code stuck in a view 
+# for keeping rounds_won tabulated....
+# in short: add it in the method above so it gets updated with all the point totals!
+
+
+
+
+
+
+
+
+
 
 
 # the methods to calculate a given UserProfile's all-time points would be record-level (that is, per-user instance), so they are methods on the Class;

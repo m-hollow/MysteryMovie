@@ -2,12 +2,12 @@
 {% load bootstrap4 %}
 
 {% block title %}
-  <title>Members</title>
+  <title>Members & All-Time Rankings</title>
 {% endblock title %}
 
 
 {% block page_header %}
-  <h2>Current Club Members</h2>
+  <h2>All Time Rankings</h2>
 {% endblock page_header %}
 
 
@@ -19,28 +19,103 @@
 
 {% else %}
 
-  {% if members|length == 1 %}
-    <p>There is currently {{ members|length }} member.</p>
+  {% if profiles|length == 1 %}
+    <p>There is currently {{ profiles|length }} member.<br>
   {% else %}
-    <p>There are currently <b>{{ members|length }}</b> members.</p>
+    <p>There are currently <b>{{ profiles|length }}</b> members.<br>
   {% endif %}
+    A total of <b>{{ game_rounds|length }}</b> Rounds have been completed.</p>
 
 <br>
-<h5 class="border-bottom pb-2 mb-4">Name<span class="float-right"><small># Rounds Won</small></span></h5>
+
+<h4>Rounds Won</h4>
+<h5 class="border-bottom pb-2 mb-4"><small>Member</small><span class="float-right"><small>Rounds Won</small></span></h5>
 
   <ul class="pl-0" style="list-style-type:none">
-  {% for pair in user_profile_pairs %}
-    <li>{{ pair.0.username }}
-    <span class="float-right"> {{ pair.1.rounds_won }} </span>
-    </li>
+  {% for profile in profiles_by_round %}
+    {% if forloop.counter == 1 %}
+      <li><h4>{{ profile.user.username }}
+      <span class="float-right"> {{ profile.rounds_won }} </span>
+      </h4></li>
+    {% else %}
+      <li>{{ profile.user.username }}
+      <span class="float-right"> {{ profile.rounds_won }} </span>
+      </li>
+    {% endif %}
   {% empty %}
     <p>There are currently no members in the database.</p>
   {% endfor %}
   </ul>
 
+<br>
+
+<h4>Correct Guesses</h4>
+<h5 class="border-bottom pb-2 mb-4"><small>Member</small><span class="float-right"><small>Correct Guesses</small></span></h5>
+
+  <ul class="pl-0" style="list-style-type:none">
+  {% for profile in profiles_by_guesses %}
+    {% if forloop.counter == 1 %}
+      <li><h4>{{ profile.user.username }}
+      <span class="float-right"> {{ profile.correct_guesses }} </span>
+      </h4></li>
+    {% else %}
+      <li>{{ profile.user.username }}
+      <span class="float-right"> {{ profile.correct_guesses }} </span>
+      </li>
+    {% endif %}
+  {% empty %}
+    <p>There are currently no members in the database.</p>
+  {% endfor %}
+  </ul>
+
+<br>
+
+<h4>Liked Movies</h4>
+
+<h5 class="border-bottom pb-2 mb-4"><small>Member</small><span class="float-right"><small>Liked Movie Points</small></span></h5>
+  <ul class="pl-0" style="list-style-type:none">
+  {% for profile in profiles_by_liked %}
+    {% if forloop.counter == 1 %}
+      <li><h4>{{ profile.user.username }}
+      <span class="float-right"> {{ profile.total_liked_movie_points }} </span>
+      </h4></li>
+    {% else %}
+      <li>{{ profile.user.username }}
+      <span class="float-right"> {{ profile.total_liked_movie_points }} </span>
+      </li>
+    {% endif %}
+  {% empty %}
+    <p>There are currently no members in the database.</p>
+  {% endfor %}
+  </ul>
+  <i>Players earn +1 point for every 4 or 5 star rating of their movies.</i><br>
+
+<br>
+
+<h4 >Loathed Movies</h4>
+
+<h5 class="border-bottom pb-2 mb-4"><small>Member</small><span class="float-right"><small>Disliked Movie Points</small></span></h5>
+
+  <ul class="pl-0" style="list-style-type:none">
+  {% for profile in profiles_by_disliked %}
+    {% if forloop.counter == 1 %}
+    <li><h4>{{ profile.user.username }}
+    <span class="float-right"> {{ profile.total_disliked_movie_points }} </span>
+    </h4></li>
+    {% else %}    
+    <li>{{ profile.user.username }}
+    <span class="float-right"> {{ profile.total_disliked_movie_points }} </span>
+    </li>
+    {% endif %}
+  {% empty %}
+    <p>There are currently no members in the database.</p>
+  {% endfor %}
+  </ul>
+  <i>Players earn +1 point for every 1 star rating of their movies.</i><br>
+
+<br>
 
 {% endif %}
-
 {% endblock content %}
 
 

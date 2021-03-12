@@ -7,7 +7,7 @@ from django.views.generic import (TemplateView, ListView, DetailView, CreateView
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.http import Http404
-from django.db.models import Max, Min, Avg
+from django.db.models import F, Max, Min, Avg
 
 from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank, PointsEarned)
 from .forms import AddMovieForm, UserMovieDetailForm
@@ -1045,72 +1045,36 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
     # you'd only need to do that if you were writing this as a non-CBV function.
 
 
-# new work to do: vastly expand this members view function and its corresponding html template to display 'all time' rankings
-# for users, gathering scores / rankings across all game rounds, presented as lists of ranked users. e.g. 'best movie rankings',
-# 'worst movie rankings' (both of these could display average rating of all of each user's movie choices, or average by round, etc);
-# 'correct guesses' showing how many people they guessed correctly by round (and ranked by total), etc.
-
-# note: you can write code in here to calculate the values necessary to print out the above mentioned lists; but note that another
-# approach is to keep an ongoing record of all such details stored in the UserProfile records, which was sort of your original intent
-# with UserProfile. however, implementing that now won't work retro-actively -- the first three rounds of data won't have been updated
-# for each user in their UserProfile. so for now just do the work here, but an 'ideal' scenario would be that at conclusion of every
-# round, the UserProfile is updated with all relevant new info, so then all THIS view would need to do is simply reach into the profiles
-# and grab that data, and rank it; the calculations and related object retreival would alreayd have been done.
-# though: just write a method of the UserProfile that runs the calculations for any existing users, including previous round results.
-# this method will "make up to date" all the fields / attributes of the UserProfile, so the above issue is moot.
 
 class MembersView(LoginRequiredMixin, ListView):
-    #model = get_user_model()
-    queryset = User.objects.order_by('-userprofile__rounds_won').exclude(username__icontains='mmg_admin')
+    #queryset = User.objects.order_by('-userprofile__rounds_won').exclude(username__icontains='mmg_admin')
+    queryset = UserProfile.objects.exclude(user__username__icontains='admin')
     template_name = 'movies/members.html'
-    context_object_name = 'members'
+    context_object_name = 'profiles'
 
     login_url = 'login'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        profiles_by_round = self.queryset.order_by('-rounds_won')
+        # annotate the profiles_by_guesses with actual # correct guesses, rather than use (x2) point total
+        profiles_by_guesses = self.queryset.order_by('-total_correct_guess_points').annotate(correct_guesses=F('total_correct_guess_points') / 2)
+        profiles_by_liked = self.queryset.order_by('-total_liked_movie_points')
+        profiles_by_disliked = self.queryset.order_by('-total_disliked_movie_points')
+
         game_rounds = GameRound.objects.order_by('-date_started')
-        current_round = game_rounds.filter(active_round=True).last()  # current round will be None if there are no rounds
 
-        user_profile_pairs = []
-        current_round_pairs = []
+        context['game_rounds'] = game_rounds
 
-        # get the profile for each user, store user and their profile as a tuple in master list
-        if context['members']:
-            for member in context['members']:
-                profile = UserProfile.objects.get(user=member)
-                user_profile_pairs.append((member, profile))
-
-        # retrieve Users through the paticipants attribute of GameRound object (M2M)
-
-        # we aren't using this stuff in the members template right now, so I'm commenting it out...
-        #if current_round:
-        #    current_round_participants = current_round.participants.all()   # note the.all() on the connection !
-
-        # TEST THESE OUT, THEY AREN'T CURRRENTLY USED, BUT I WANT TO CONFIRM HOW TO FILTER DOWN THE
-        # DESIRED OBJECTS IN THE QUERYSET USING THE FOLLOWING APPROACHES...
-        # alternately, retrieve Users by filtering the queryset of all members, which is already in our context
-
-        # note that you have now defined UserRoundDetail, the intermediary table between User and Round, which
-        # should make the format of these queries more obvious....
-
-        #crp2 = context['members'].filter(gameround__round_number=current_round.round_number)
-
-        # could you just shorten it by providing the game round object itself?
-        #crp3 = context['members'].filter(gameround=current_round)
-
-            # not in use right now, commented out...
-            # for p in current_round_participants:
-            #     profile = UserProfile.objects.get(user=p)
-            #     current_round_pairs.append((p, profile))
-
-
-        #context['current_round'] = current_round
-        context['user_profile_pairs'] = user_profile_pairs
-        #context['current_round_pairs'] = current_round_pairs
+        context['profiles_by_round'] = profiles_by_round
+        context['profiles_by_guesses'] = profiles_by_guesses
+        context['profiles_by_liked'] = profiles_by_liked
+        context['profiles_by_disliked'] = profiles_by_disliked
 
         return context
+
+
 
 
 class AddMovieView(LoginRequiredMixin, CreateView):
