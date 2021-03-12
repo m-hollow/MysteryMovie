@@ -1063,9 +1063,9 @@ class MembersView(LoginRequiredMixin, ListView):
         profiles_by_liked = self.queryset.order_by('-total_liked_movie_points')
         profiles_by_disliked = self.queryset.order_by('-total_disliked_movie_points')
 
-        game_rounds = GameRound.objects.order_by('-date_started')
+        completed_game_rounds = GameRound.objects.filter(round_completed=True).order_by('-date_started')
 
-        context['game_rounds'] = game_rounds
+        context['game_rounds'] = completed_game_rounds
 
         context['profiles_by_round'] = profiles_by_round
         context['profiles_by_guesses'] = profiles_by_guesses

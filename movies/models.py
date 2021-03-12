@@ -20,7 +20,7 @@ class GameRound(models.Model):
     # what happens if this unique rule is broken? 
     active_round = models.BooleanField(choices=bool_choices, default=False, verbose_name="Is this round currently active?")  # is this the 'active' round, now in progress.
 
-    # round_completed is distinct from current_round = False, because you might add a round that hasn't started yet
+    # a round can be complete and still  be the active round -- e.g. it's data is displayed on index and will be there until a new round is started
     round_completed = models.BooleanField(choices=bool_choices, default=False, verbose_name="Round Already Completed?")
 
     date_started = models.DateField(default=date.today, null=True, verbose_name="Round Start Date")
