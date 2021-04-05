@@ -32,7 +32,7 @@ urlpatterns = [
     path('results/', ResultsView.as_view(), name='results'),
     path('old_round_results/<int:pk>/', OldRoundView.as_view(), name='old_round_results'),
     path('settings/', SettingsView.as_view(), name='settings'),
-    path('user_results/<int:pk>', UserResultsView.as_view(), name='user_results'),
+    path('user_results/<int:pk>/', UserResultsView.as_view(), name='user_results'),
 ]
 
 
