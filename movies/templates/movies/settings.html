@@ -16,6 +16,17 @@
 +&nbsp;&nbsp;<a href="{% url 'movies:add_movie' %}">Add Movie</a>
 
 <br>
+<!-- this is so you can manually run the model method; the alternative to this is simply have it called by the
+    Round-ending view, so any time a Round ends, the points in all UserProfiles automatically get updated -->
+<br>
+<p>To update all User Profiles to current all-time point totals, click here:</p>
+
+<!-- create a 'ghost' form so the update is done via POST -->
+<form action="{% url 'movies:update_points' %}" method='post'>
+  {% csrf_token %}
+    <button name='submit' class='btn-secondary'>Update Points</button>
+</form>
+
 <br>
 <br>
 

@@ -8,7 +8,6 @@ from django.db.models import Avg, Max, Min, Count, Q
 
 
 
-
 class GameRound(models.Model):
     
     bool_choices = ((True, 'Yes'), (False, 'No'))
@@ -43,6 +42,16 @@ class GameRound(models.Model):
         super().save(*args, **kwargs)
 
 
+    def get_absolute_url(self):
+
+        if self.round_completed == False:
+            return reverse('movies:results')
+        # round is complete; go to old_round_results display, not 'active' results page.
+        elif self.round_completed == True:
+            return reverse('movies:old_round_results', kwargs={'pk': str(self.pk)})
+
+
+#NOTE: this is not currently used at all, and isn't really necessary; data is drawn from UserProfiles to show all-time scores.
 class AllTimeScore(models.Model):
     """Stores current all-time ranks for specific areas, as tabulated every time a Round is concluded; e.g. 'best guesser', 'worst movie chooser'"""
 
@@ -176,8 +185,10 @@ class Movie(models.Model):
     class Meta:
         ordering = ['date_watched']
 
+
     def __str__(self):
         return self.name
+
 
     def get_absolute_url(self):
         kwargs = {
@@ -249,7 +260,9 @@ class UserProfile(models.Model):
 
         # two approaches -- one, loop through objects and sum totals, e.g., pure python code based on values retrieved from db;
         # two, use database-level functions via django / sql:  aggregate and annotate as necessary using sum(), max(), etc.
+        # or perhaps just use F() expressions to grab the data on the db level?
 
+        # build a point dictionary, defaults to 0 for everything
         point_dict = {
             'all_time_rounds': 0,
             'all_time_guess': 0,
@@ -259,6 +272,7 @@ class UserProfile(models.Model):
             'all_time_disliked': 0,
         }
 
+        # loop through all UserRoundDetail objects connected to this UserProfile instance, accumulate points from each into point_dict
         for urd in user_urds:
             point_dict['all_time_guess'] += urd.correct_guess_points
             point_dict['all_time_known'] += urd.known_movie_points
@@ -271,6 +285,7 @@ class UserProfile(models.Model):
             else:
                 pass
 
+        # update the fields of this UserProfile instance, based on data stored in point_dict
         self.rounds_won = point_dict['all_time_rounds']
 
         self.total_correct_guess_points = point_dict['all_time_guess']
@@ -279,14 +294,23 @@ class UserProfile(models.Model):
         self.total_liked_movie_points = point_dict['all_time_liked']
         self.total_disliked_movie_points = point_dict['all_time_disliked']
 
-
         self.save()
+
+
+    def get_absolute_url(self):
+        return reverse('movies:user_profile', kwargs={'pk': str(self.pk)}) # note the pk field on UserProfile is 'user_id'
+
+
 
 
 # note: the rounds_won field is currently updated by a view -- the conclude round view, I think. ultimately the update_all_data method
 # should include it's own code to correctly compute how many rounds a given P has won. We shouldnt rely on some code stuck in a view 
 # for keeping rounds_won tabulated....
-# in short: add it in the method above so it gets updated with all the point totals!
+# in short: add it in the method above so it gets updated with all the point totals, AND remove the code that sets it in the view,
+# otherwise you could wind up with things being accumulated twice, etc....actually, I think as long as you do
+# the update points AFTER the round conclusion, it will always calculate and overwrite the value to the correct value;
+# but regardless, you should probably remove the rounds_won update in the view, it's redundant with point update method...
+
 
 
 

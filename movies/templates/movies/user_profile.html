@@ -1,0 +1,50 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+<title>User Profile</title>
+{% endblock title %}
+
+{% block page_header %}
+<h2>{{ user_profile.user.username }}&lsquo;s Profile</h2>
+{% endblock page_header %}
+
+{% block content %}
+
+<!-- <p>Date Joined: {{ user_profile.user.date_joined|date:'M Y' }}</p> -->
+
+<ul class="pl-0" style="list-style-type:none">
+  <li>Total Rounds Won<span class="float-right">{{ user_profile.rounds_won }}<small>&nbsp;&nbsp;&nbsp;&nbsp;<i>of</i>  &nbsp;&nbsp;{{ max_rounds }}</small></span></li>
+  <li>Total Correct Guesses<span class="float-right">{{ guess_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_guess }}</small></span></li>
+  <br>
+  <li>Liked Movie Points<span class="float-right">{{ user_profile.total_liked_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
+  <li>Loathed Movie Points<span class="float-right">{{ user_profile.total_disliked_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
+  <li>Unseen Movie Points<span class="float-right">{{ user_profile.total_unseen_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
+  <li>Heard Of Movie Points<span class="float-right">{{ user_profile.total_known_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
+</ul>
+
+<br>
+
+<h4 class="border-bottom pb-2 mb-4">{{ user_profile.user.username }}&lsquo;s Movies</h4>
+<!-- <h5 class="border-bottom pb-2 mb-4"><small>Round</small><span class="float-right"><small>Movie</small></span></h5> -->
+<ul class="pl-0" style="list-style-type:none">
+{% for movie in user_movies %}
+  <li><a href="{{ movie.game_round.get_absolute_url }}">Round {{ movie.game_round.round_number }}</a>
+  <span class="float-right"><a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a></span>
+  </li>
+{% endfor %}
+</ul>
+
+
+
+<br>
+<br>
+<p><span class="float-right"><a href="{% url 'movies:members' %}"><b>All Members &#8594;</b></a></span></p>
+
+<!-- <br>
+<br>
+<p><span class="float-right"><a href="{{ request.GET.next }}"><b>Go Back</b></span></a></p>
+<br> -->
+
+{% endblock content %}
+

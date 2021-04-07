@@ -49,12 +49,16 @@
 
     <br>
 
-    <li>Most Loathed Movie:<span class="float-right">{{ most_hated_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
-    <li>Most Enjoyed Movie:<span class="float-right">{{ most_enjoyed_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
+    <li>Most Loathed Movie:<span class="float-right"><a href="{{ most_hated_movie.get_absolute_url }}">{{ most_hated_movie.name }}</a><small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
+    <li>Most Enjoyed Movie:<span class="float-right"><a href="{{ most_enjoyed_movie.get_absolute_url }}">{{ most_enjoyed_movie.name }}</a><small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
 
   </ul>
 
 <br>
-<a href="{% url 'movies:results' %}"><b><span class="float-right">Go Back</b></span></a></p>
+<a href="{% url 'movies:results' %}"><b><span class="float-right">All Results &#8594;</b></span></a></p>
 
+<!-- <br>
+<p><span class="float-right"><a href="{{ request.GET.next }}"><b>Go Back</b></span></a></p>
+<br>
+ -->
 {% endblock content %}

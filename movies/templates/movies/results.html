@@ -38,11 +38,11 @@
 
       <ul class="pl-0" style="list-style-type:none">
       {% for movie_name, status in round_progress_dict.items %}
-        <li class="pb-1"><b>{{ movie_name }}</b></li>
+        <li class="pb-1"><a href="{{ status.movie_object.get_absolute_url }}"><b>{{ movie_name }}</b></a></li>
           <ul class="pl-3" style="list-style-type:none">
             <li>Details Received:<span class="float-right">
             {% for participant in status.submitted %}
-              &nbsp;<small>{{ participant.username }}</small>
+              &nbsp;<small><a href="{{ participant.userprofile.get_absolute_url }}">{{ participant.username }}</a></small>
             {% empty %}
               <small>none</small>
             {% endfor %}
@@ -50,7 +50,7 @@
 
             <li>Details Needed:<span class="float-right">
             {% for participant in status.incomplete %}
-              &nbsp;<small>{{ participant.username }}</small>
+              &nbsp;<small><a href="{{ participant.userprofile.get_absolute_url }}">{{ participant.username }}</small></a>
             {% empty %}
               <small>n/a</small>
             {% endfor %}
@@ -109,8 +109,8 @@
     <li>Date Round Concluded:<span class="float-right">{{ current_round.date_finished }}</li>
     <br>
 
-    <li>Most Loathed Movie<span class="float-right">{{ most_hated_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
-    <li>Most Enjoyed Movie<span class="float-right">{{ most_enjoyed_movie.name }}<small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
+    <li>Most Loathed Movie<span class="float-right"><a href="{{ most_hated_movie.get_absolute_url }}">{{ most_hated_movie.name }}</a><small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
+    <li>Most Enjoyed Movie<span class="float-right"><a href="{{ most_enjoyed_movie.get_absolute_url }}">{{ most_enjoyed_movie.name }}</a><small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
   </ul>
 
   {% endif %}

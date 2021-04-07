@@ -2,7 +2,9 @@ from django.urls import path
 from django.views.generic.base import RedirectView
 
 from .views import (IndexPageView, MovieDetail, OldMovieDetail, MembersView, AddMovieView,
-    process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundView, ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, SettingsView, UserResultsView)
+    process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundView, 
+    ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, 
+    SettingsView, UserResultsView, update_points, UserProfileView)
 
 app_name = 'movies'
 urlpatterns = [
@@ -32,7 +34,9 @@ urlpatterns = [
     path('results/', ResultsView.as_view(), name='results'),
     path('old_round_results/<int:pk>/', OldRoundView.as_view(), name='old_round_results'),
     path('settings/', SettingsView.as_view(), name='settings'),
+    path('settings/update_points/', update_points, name='update_points'),
     path('user_results/<int:pk>/', UserResultsView.as_view(), name='user_results'),
+    path('user_profile/<int:pk>/', UserProfileView.as_view(), name='user_profile'),
 ]
 
 

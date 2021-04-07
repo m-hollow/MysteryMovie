@@ -50,11 +50,6 @@ Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</s
         <li>This movie was chosen by:<span class="float-right">{{ user_that_chose_movie.username }}</span></li>
         <li>The average rating for this movie was:<span class="float-right">{{ movie_avg_rating }}</span></li>
 
-        <!--<li>Users who correctly blamed <b>{{ user_that_chose_movie.username }}</b>:<span class="float-right">...</span></li>-->
-        <!--<br>-->
-        <!--<li># of Users who had already seen it:</li>-->
-        <!--<li># of Users who had never heard of it:</li>-->
-
         <br>
         <li class="mb-3"><h5>Deep Hurting Scores:</h5></li>
           <ul class="pl-0" style="list-style-type:none">
@@ -63,7 +58,24 @@ Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</s
             {% endfor %}
           </ul>
 
+        <br>
+        <br>
+
+        <li class="mb-3"><h5>User Guesses:&nbsp;&nbsp;<span class="float-right"><small>Correct Answer: &nbsp;<b>{{ user_that_chose_movie.username }}</b></small></span></h5></li>
+          <ul class="pl-0" style="list-style-type:none">
+          {% for d in guess_dicts %}
+          <li class="mb-2">{{ d.username }} &nbsp;&nbsp;<small><i>guessed</i></small>&nbsp;&nbsp; {{ d.guess.username }} <span class="float-right">{{ d.result }}</span></li>
+          {% endfor %}
+          {% if non_guess_dicts %}
+            {% for d in non_guess_dicts %}
+              <li class="mb-2">{{ d.username }} <small><i>&nbsp;didn't make a guess!</i></small></li> 
+            {% endfor %}
+          {% endif %}
+          </ul>
+
+
         {% if movie_comments %}
+        <br>
         <br>
         <li class="mb-3"><h5>Comments:</h5></li>
             <ul class="pl-3" style="list-style-type:none">
@@ -71,13 +83,15 @@ Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</s
                 <li class="mb-3">"{{ comment_dict.comment }}"<br>&nbsp;&nbsp;&nbsp;- <i>{{ comment_dict.username }}</i></li>
                 {% endfor %}
             </ul>
-        </li>
         {% endif %}
+
+
+
     </ul>
 
 <br>
 
-<p><span class="float-right"><a href="{{ request.GET.next }}"><b>Go Back</b></span></a></p>
+<p><span class="float-right"><a href="{{ request.GET.next }}"><b>&#8592; Go Back</b></span></a></p>
 
 <br>
 

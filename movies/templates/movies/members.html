@@ -7,7 +7,7 @@
 
 
 {% block page_header %}
-  <h2>All Time Rankings</h2>
+  <h2>Members & Rankings</h2>
 {% endblock page_header %}
 
 
@@ -20,11 +20,26 @@
 {% else %}
 
   {% if profiles|length == 1 %}
-    <p>There is currently {{ profiles|length }} member.<br>
+    <p>There is currently {{ profiles|length }} member:<br>
   {% else %}
-    <p>There are currently <b>{{ profiles|length }}</b> members.<br>
+    <p>There are currently <b>{{ profiles|length }}</b> members:<br>
   {% endif %}
-    A total of <b>{{ game_rounds|length }}</b> Rounds have been completed.</p>
+  {% for p in profiles %}
+    <a href="{{ p.get_absolute_url }}"><i>{{ p.user.username }}</i></a>&nbsp;&nbsp;
+  {% endfor %}
+    <br>
+<!--     <br>
+    A total of <b>{{ game_rounds|length }}</b> Rounds have been completed.</p> -->
+
+<!-- <br>
+<h4>Current Members</h4>
+<h5 class="border-bottom pb-2 mb-4"><small>Username</small><span class="float-right"><small>Date Joined</small></span></h5>
+
+<ul class="pl-0" style="list-style-type:none">
+{% for profile in profiles %}
+  <li><a href="{{ profile.get_absolute_url }}?next={{ request.path|urlencode }}">{{ profile.user.username }}</a><span class="float-right">{{ profile.user.date_joined|date:"M Y" }}</span></li>
+{% endfor %}
+</ul> -->
 
 <br>
 
@@ -34,11 +49,11 @@
   <ul class="pl-0" style="list-style-type:none">
   {% for profile in profiles_by_round %}
     {% if forloop.counter == 1 %}
-      <li><h4>{{ profile.user.username }}
+      <li><h4><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
       <span class="float-right"> {{ profile.rounds_won }} </span>
       </h4></li>
     {% else %}
-      <li>{{ profile.user.username }}
+      <li><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
       <span class="float-right"> {{ profile.rounds_won }} </span>
       </li>
     {% endif %}
@@ -55,11 +70,11 @@
   <ul class="pl-0" style="list-style-type:none">
   {% for profile in profiles_by_guesses %}
     {% if forloop.counter == 1 %}
-      <li><h4>{{ profile.user.username }}
+      <li><h4><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
       <span class="float-right"> {{ profile.correct_guesses }} </span>
       </h4></li>
     {% else %}
-      <li>{{ profile.user.username }}
+      <li><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
       <span class="float-right"> {{ profile.correct_guesses }} </span>
       </li>
     {% endif %}
@@ -76,11 +91,11 @@
   <ul class="pl-0" style="list-style-type:none">
   {% for profile in profiles_by_liked %}
     {% if forloop.counter == 1 %}
-      <li><h4>{{ profile.user.username }}
+      <li><h4><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
       <span class="float-right"> {{ profile.total_liked_movie_points }} </span>
       </h4></li>
     {% else %}
-      <li>{{ profile.user.username }}
+      <li><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
       <span class="float-right"> {{ profile.total_liked_movie_points }} </span>
       </li>
     {% endif %}
@@ -99,11 +114,11 @@
   <ul class="pl-0" style="list-style-type:none">
   {% for profile in profiles_by_disliked %}
     {% if forloop.counter == 1 %}
-    <li><h4>{{ profile.user.username }}
+    <li><h4><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
     <span class="float-right"> {{ profile.total_disliked_movie_points }} </span>
     </h4></li>
     {% else %}    
-    <li>{{ profile.user.username }}
+    <li><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
     <span class="float-right"> {{ profile.total_disliked_movie_points }} </span>
     </li>
     {% endif %}

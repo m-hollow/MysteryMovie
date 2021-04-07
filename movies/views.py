@@ -7,7 +7,7 @@ from django.views.generic import (TemplateView, ListView, DetailView, CreateView
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.http import Http404
-from django.db.models import F, Max, Min, Avg
+from django.db.models import F, Max, Min, Avg, Count
 
 from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank, PointsEarned)
 from .forms import AddMovieForm, UserMovieDetailForm
@@ -131,6 +131,7 @@ class ResultsView(LoginRequiredMixin, TemplateView):
                     round_progress_status[movie.name] = {
                         'submitted':[],
                         'incomplete': [],
+                        'movie_object': movie,
                     }
 
                     for participant in current_round_participants:
@@ -283,6 +284,49 @@ class UserResultsView(LoginRequiredMixin, DetailView):
         context['participant_movie'] = participant_movie
         context['movie_avg_rating'] = movie_avg_rating
         context['game_round'] = game_round
+        return context
+
+
+class UserProfileView(LoginRequiredMixin, DetailView):
+    model = UserProfile
+    template_name = 'movies/user_profile.html'
+    context_object_name = 'user_profile'
+
+    login_url = 'login'
+
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+
+
+
+
+        # get the user of this UserProfile instance
+        user = self.object.user
+
+        # get all movie objects for the user instance; MUST FILTER OUT NON-COMPLETED ROUND RESULTS!
+        # (or they would display on the User Profile page, spoiling everything...!!!!)
+        user_movies = Movie.objects.filter(usermoviedetail__user=user, usermoviedetail__is_user_movie=True).exclude(game_round__round_completed=False).order_by('-game_round__round_number')
+
+        guess_points = int((self.object.total_correct_guess_points / 2))
+
+        round_count = GameRound.objects.count()
+
+        total_participants = GameRound.objects.all().aggregate(summed=Count('participants')) # this returns a dict
+        p_summed = total_participants['summed']
+
+        guess_max = (p_summed - round_count)
+
+        all_max = p_summed
+
+        context['guess_points'] = guess_points
+        context['user_movies'] = user_movies
+
+        context['max_rounds'] = round_count
+        context['max_guess'] = guess_max
+        context['max_rest'] = all_max
+
         return context
 
 
@@ -691,8 +735,6 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return context
 
 
-# some redundancy in current build; we have two separate UpdateViews that both process GameRound; surely you can merge them
-# one is for 'editing' the other is for 'committing', but still...
 class CommitGameRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = GameRound
     template_name = 'movies/commit_game_round.html'
@@ -809,9 +851,6 @@ class OldRoundView(LoginRequiredMixin, DetailView):
 
         return context
 
-# new work for Movie page (and old movie page) -- matrix of guesses, showing all users on both axis, and a mark for who they guessed
-# chose this movie (that is, the movie of the movie detail page you are on). the mark is an icon with two possibilities: correct or
-# incorrect guess.
 
 class MovieDetail(LoginRequiredMixin, DetailView):
     model = Movie
@@ -861,11 +900,42 @@ class MovieDetail(LoginRequiredMixin, DetailView):
             umds = UserMovieDetail.objects.filter(movie=self.object)
             comments_for_movie = []
             ratings_for_movie = []
+
+            guess_dicts = []
+            non_guess_dicts = []
+
             for umd in umds:
                 username = umd.user.username
                 rating = umd.star_rating
                 rating_dict = {'username': username, 'rating': rating}
                 ratings_for_movie.append(rating_dict)
+
+                guess_pair_dict = {}
+
+                if umd.is_user_movie:
+                    pass
+
+                elif umd.user_guess == user_that_chose_movie:
+                    guess_pair_dict['username'] = username
+                    guess_pair_dict['guess'] = umd.user_guess
+                    guess_pair_dict['result'] = 'Nailed It!'
+                
+                elif umd.user_guess != user_that_chose_movie and umd.user_guess != None:
+                    guess_pair_dict['username'] = username
+                    guess_pair_dict['guess'] = umd.user_guess
+                    guess_pair_dict['result'] = 'Nope!'
+
+                elif umd.user_guess == None:
+                    non_guess_dict = {'username': username, 'guess': 'n/a', 'result': 'n/a'}
+                    non_guess_dicts.append(non_guess_dict)
+
+                if guess_pair_dict:    
+                    guess_dicts.append(guess_pair_dict)
+                # sort the guess_dicts by result so correct guess matches are listed first (this is just a dumb string-based
+                # sort where Nailed It! evals as greater than Nope!)
+
+                guess_dicts.sort(key=lambda x: x['result'])
+
                 if umd.comments:
                     comment = umd.comments
                     comment_dict = {'username': username, 'comment': comment}
@@ -879,6 +949,9 @@ class MovieDetail(LoginRequiredMixin, DetailView):
             comments_for_movie = None
             ratings_for_movie = None
 
+            guess_dicts = None
+            non_guess_dicts = None
+
             # Table-Level query to retreive same object above (user_that_chose_movie):
             #user_that_chose_movie = UserMovieDetail.objects.get(movie=uself.object, is_user_movie=True).user
 
@@ -891,6 +964,8 @@ class MovieDetail(LoginRequiredMixin, DetailView):
         context['user_movie_details'] = user_movie_details
         context['form'] = form
         context['results_ready'] = results_ready
+        context['guess_dicts'] = guess_dicts
+        context['non_guess_dicts'] = non_guess_dicts
 
         return context
 
@@ -917,6 +992,7 @@ class OldMovieDetail(LoginRequiredMixin, DetailView):
         else:
             user_movie_details = None
 
+        # technically this is unnecessary; this view is only called for movies in a completed round...
         if game_round.round_completed:
             user_that_chose_movie = self.object.users.get(usermoviedetail__is_user_movie=True)
             movie_average_rating = self.object.average_rating
@@ -927,11 +1003,42 @@ class OldMovieDetail(LoginRequiredMixin, DetailView):
             umds = UserMovieDetail.objects.filter(movie=self.object)
             comments_for_movie = []
             ratings_for_movie = []
+
+            guess_dicts = []
+            non_guess_dicts = []
+
             for umd in umds:
                 username = umd.user.username
                 rating = umd.star_rating
                 rating_dict = {'username': username, 'rating': rating}
                 ratings_for_movie.append(rating_dict)
+
+                guess_pair_dict = {}
+
+                if umd.is_user_movie:
+                    pass
+
+                elif umd.user_guess == user_that_chose_movie:
+                    guess_pair_dict['username'] = username
+                    guess_pair_dict['guess'] = umd.user_guess
+                    guess_pair_dict['result'] = 'Nailed It!'
+                
+                elif umd.user_guess != user_that_chose_movie and umd.user_guess != None:
+                    guess_pair_dict['username'] = username
+                    guess_pair_dict['guess'] = umd.user_guess
+                    guess_pair_dict['result'] = 'Nope!'
+
+                elif umd.user_guess == None:
+                    non_guess_dict = {'username': username, 'guess': 'n/a', 'result': 'n/a'}
+                    non_guess_dicts.append(non_guess_dict)
+
+                if guess_pair_dict:    
+                    guess_dicts.append(guess_pair_dict)
+                # sort the guess_dicts by result so correct guess matches are listed first (this is just a dumb string-based
+                # sort where Nailed It! evals as greater than Nope!)
+
+                guess_dicts.sort(key=lambda x: x['result'])
+
                 if umd.comments:
                     comment = umd.comments
                     comment_dict = {'username': username, 'comment': comment}
@@ -944,6 +1051,9 @@ class OldMovieDetail(LoginRequiredMixin, DetailView):
             comments_for_movie = None
             ratings_for_movie = None
 
+            guess_dicts = None
+            non_guess_dicts = None
+
         context['movie_comments'] = comments_for_movie
         context['movie_ratings'] = ratings_for_movie
         context['movie_avg_rating'] = movie_average_rating
@@ -951,6 +1061,8 @@ class OldMovieDetail(LoginRequiredMixin, DetailView):
         context['game_round'] = game_round
         context['user_profile'] = user_profile
         context['user_movie_details'] = user_movie_details
+        context['guess_dicts'] = guess_dicts
+        context['non_guess_dicts'] = non_guess_dicts
 
 
         return context
@@ -1014,13 +1126,34 @@ def update_details(request, umd_pk):
         if form.is_valid():
             form.save()
 
-            return redirect(movie)
+            return redirect(movie) # this works because movie has a get_absolute_url method
 
     context = {'form': form, 'object': umd_object }
     return render(request, 'movies/update_details.html', context)
 
 
-# Q: how to get the modification of the form.fields performed in the function above to work inside
+# utility function that is called by a 'fake form' (so it's a POST request) from admin page, to call the 
+# update_all_data() model method on every existing instance of the UserProfile model.
+def update_points(request):
+
+    if not request.user.userprofile.is_mmg_admin:
+        raise Http404
+
+    # this view will never be called by a GET request
+    if request.method == 'POST':
+
+        for p in UserProfile.objects.all():
+            p.update_all_data()               # model method updates the instance fields for all-time points
+
+        return redirect('movies:members')
+
+
+    if request.method != 'POST':
+        raise Http404
+
+
+
+# Q: how to get the modification of the form.fields performed in the functions up above (update_details) to work inside
 # the CBV below....what method do I override to put it there? answer: use get_form() method
 class UpdateDetailsView(LoginRequiredMixin, UpdateView):
     model = UserMovieDetail
@@ -1043,7 +1176,6 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
 
     # UpdateView takes care of passing the to-be-updated object instance to the ModelForm constructor
     # you'd only need to do that if you were writing this as a non-CBV function.
-
 
 
 class MembersView(LoginRequiredMixin, ListView):
@@ -1073,8 +1205,6 @@ class MembersView(LoginRequiredMixin, ListView):
         context['profiles_by_disliked'] = profiles_by_disliked
 
         return context
-
-
 
 
 class AddMovieView(LoginRequiredMixin, CreateView):

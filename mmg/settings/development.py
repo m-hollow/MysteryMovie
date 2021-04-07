@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     # Third Party apps
     'bootstrap4',
     'crispy_forms',
+    'debug_toolbar',
 ]
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
@@ -81,6 +82,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # my additions'
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'mmg.urls'
@@ -138,6 +142,13 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# for use with django_debug_toolbar (this is only in development settings file)
+INTERNAL_IPS = [
+    '127.0.0.1',
+    '0.0.0.0',
+    'localhost',
+]
+
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
@@ -176,4 +187,9 @@ LOGIN_URL = 'login'   # used by django to redirect to login when @login_required
 LOGIN_REDIRECT_URL = 'movies:index'   # same as below
 LOGOUT_REDIRECT_URL = 'login'  # using this now because using 'next' was messing up w/ sessions variable
 
+
+# workaround to get debug_toolbar working, still not clear why it's necessary:
+DEBUG_TOOLBAR_CONFIG = {
+    "SHOW_TOOLBAR_CALLBACK" : lambda request: True,
+}
 
