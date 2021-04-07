@@ -256,7 +256,10 @@ class UserProfile(models.Model):
         # the values and (re)assign them to the relevant field; doing it over and over would just be pointless, but not destructive.
     
         # get all UserRoundDetail objects for user of this user profile instance:
-        user_urds = self.user.userrounddetail_set.all()
+        user_urds = self.user.userrounddetail_set.filter(game_round__round_completed=True)
+
+        # Note on above: technically, filtering by completed round isn't necessary, because a urd record is only created for a round when the round
+        # is completed. But the above query more 'accurately' reflects exactly what we want to retrieve. 
 
         # two approaches -- one, loop through objects and sum totals, e.g., pure python code based on values retrieved from db;
         # two, use database-level functions via django / sql:  aggregate and annotate as necessary using sum(), max(), etc.

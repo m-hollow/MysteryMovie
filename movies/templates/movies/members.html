@@ -22,24 +22,16 @@
   {% if profiles|length == 1 %}
     <p>There is currently {{ profiles|length }} member:<br>
   {% else %}
-    <p>There are currently <b>{{ profiles|length }}</b> members:<br>
+    <p>There are currently <b>{{ profiles|length }}</b> members. <span class="float-right"><small>
+      <i>Click a name to view that member's Profile.</i></small></span><br>
   {% endif %}
+   A total of <b>{{ game_rounds|length }}</b> Rounds have been completed.
+  <ul class="pl-0" style="list-style-type:none">
   {% for p in profiles %}
-    <a href="{{ p.get_absolute_url }}"><i>{{ p.user.username }}</i></a>&nbsp;&nbsp;
+    <li><a href="{{ p.get_absolute_url }}">{{ p.user.username }}</a></li>
   {% endfor %}
-    <br>
-<!--     <br>
-    A total of <b>{{ game_rounds|length }}</b> Rounds have been completed.</p> -->
-
-<!-- <br>
-<h4>Current Members</h4>
-<h5 class="border-bottom pb-2 mb-4"><small>Username</small><span class="float-right"><small>Date Joined</small></span></h5>
-
-<ul class="pl-0" style="list-style-type:none">
-{% for profile in profiles %}
-  <li><a href="{{ profile.get_absolute_url }}?next={{ request.path|urlencode }}">{{ profile.user.username }}</a><span class="float-right">{{ profile.user.date_joined|date:"M Y" }}</span></li>
-{% endfor %}
-</ul> -->
+  </ul> 
+</p>
 
 <br>
 

@@ -25,7 +25,7 @@
   </ul>
 
   <br>
-  <p>Click a Participant's name above to see detailed results for that user.</p>
+  <p>Click a Participant's name to see detailed Round results for that user.</p>
 
   <br>
 
@@ -38,7 +38,7 @@
   </ul>
 
   <br>
-  <p>Click a Movie title above to see detailed results for that movie.</p>
+  <p>Click a Movie title to see detailed results for that movie.</p>
 
 <br>
 
@@ -49,8 +49,8 @@
 
     <br>
 
-    <li>Most Loathed Movie:<span class="float-right"><a href="{{ most_hated_movie.get_absolute_url }}">{{ most_hated_movie.name }}</a><small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
-    <li>Most Enjoyed Movie:<span class="float-right"><a href="{{ most_enjoyed_movie.get_absolute_url }}">{{ most_enjoyed_movie.name }}</a><small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
+    <li>Most Loathed Movie:<span class="float-right"><a href="{{ most_hated_movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ most_hated_movie.name }}</a><small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_hated_score }}</small></span></li>
+    <li>Most Enjoyed Movie:<span class="float-right"><a href="{{ most_enjoyed_movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ most_enjoyed_movie.name }}</a><small>&nbsp;&nbsp;/&nbsp;&nbsp;{{ most_enjoyed_score }}</small></span></li>
 
   </ul>
 

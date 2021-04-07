@@ -61,7 +61,7 @@ Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</s
         <br>
         <br>
 
-        <li class="mb-3"><h5>User Guesses:&nbsp;&nbsp;<span class="float-right"><small>Correct Answer: &nbsp;<b>{{ user_that_chose_movie.username }}</b></small></span></h5></li>
+        <li class="mb-3"><h5>User Guesses:&nbsp;&nbsp;<span class="float-right"><small>Correct Answer - <b>{{ user_that_chose_movie.username }}</b></small></span></h5></li>
           <ul class="pl-0" style="list-style-type:none">
           {% for d in guess_dicts %}
           <li class="mb-2">{{ d.username }} &nbsp;&nbsp;<small><i>guessed</i></small>&nbsp;&nbsp; {{ d.guess.username }} <span class="float-right">{{ d.result }}</span></li>
@@ -84,15 +84,10 @@ Date Watched: <span class="float-right">{{ movie.date_watched|date:'M d, Y'}}</s
                 {% endfor %}
             </ul>
         {% endif %}
-
-
-
     </ul>
 
 <br>
-
 <p><span class="float-right"><a href="{{ request.GET.next }}"><b>&#8592; Go Back</b></span></a></p>
-
 <br>
 
 
