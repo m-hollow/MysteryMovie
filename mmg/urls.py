@@ -24,7 +24,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('users/', include('users.urls')),
     path('', include('movies.urls')),
-    path('__debug__/', include(debug_toolbar.urls)),
+    #path('__debug__/', include(debug_toolbar.urls)),   # this will crash in production if here; production doesn't use debug_toolbar
 ]
 
 
@@ -33,4 +33,6 @@ if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
+    # use debug_toolbar in development
+    urlpatterns += [path('__debug__/', include(debug_toolbar.urls))] # this fixeds the above issue re: crashing in production
 
