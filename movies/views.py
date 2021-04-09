@@ -85,6 +85,27 @@ class SettingsView(LoginRequiredMixin, TemplateView):
 
         return context
 
+
+
+class OverviewView(LoginRequiredMixin, ListView):
+    model = GameRound
+    template_name = 'movies/overview.html'
+    context_object_name = 'game_rounds'
+
+    login_url = 'login'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        all_movies = Movie.objects.all()
+
+        context['all_movies'] = all_movies
+
+
+        return context
+
+
+
 # this is not a DetailView becuase that requires a pk argument in the url, and this link appears in navbar on base.html,
 # which I (currently) have no way to send vars to (for the url to capture).
 class ResultsView(LoginRequiredMixin, TemplateView):
@@ -761,9 +782,11 @@ class CommitGameRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         return initial
 
-
-    def form_valid(self, form):
+    # previous version of form_valid, does not make calls to UserProfile's update_all_data method, which means the admin
+    # must manually hit the 'update all data' button on the Admin page after concluding a round to update UserProfile stats.
+    def form_valid_old(self, form):
         # we have one additional task here: get the round winner and update their profile's rounds_won field
+        # update: also calls assign_movie on movies related to this round.
 
         # I kept forgetting to input this manually on the form, so I'm making it automatic now:
         form.instance.round_completed = True    # we are committing the game round, so we set this to True automatically
@@ -775,7 +798,60 @@ class CommitGameRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         winner_profile.rounds_won += 1
         winner_profile.save()
 
+        round_movies = self.object.movies_from_round.all()
+
+        for movie in round_movies:
+            movie.assign_user()
+
+
         return super().form_valid(form)
+
+
+    def form_valid(self, form):
+        # we have one additional task here: get the round winner and update their profile's rounds_won field
+        # update: added two more tasks: call update_all_data on user profiles, and assign_movie on movies.
+        # this required changing the order of operations in this method, because the calls to the profile methods
+        # must occur -after- the form / object has been saved (profile update data method only uses URD objects 
+        # connected to a *completed* round; before the save, this round isn't completed!)
+
+        # I kept forgetting to input this manually on the form, so I'm making it automatic now:
+        form.instance.round_completed = True    # we are committing the game round, so we set this to True automatically
+
+        # this whole chunk is redundant now, because updating user profiles will update the profile.round_won field, which is
+        # all this is doing -- you can therefore remove the next five lines of code (six including comment):
+        winner_name = self.request.session['winner_name']
+        winner = User.objects.get(username__icontains=winner_name)
+        winner_profile = winner.userprofile
+        #update the profile to record the win
+        winner_profile.rounds_won += 1
+        winner_profile.save()
+
+        # grab movies related to this round and call their assign_movie method, so movies contain FK to user who chose them:
+        round_movies = self.object.movies_from_round.all()
+
+        for movie in round_movies:
+            movie.assign_user()
+
+        response = super().form_valid(form)     # call to super saves form and returns redirect object
+
+        # the following update_all_data calls must be made -after- form has been saved, or they won't include this round's URDs
+        round_profiles = UserProfile.objects.filter(user__related_game_rounds=self.object) # get profiles of users in this round
+        for p in round_profiles:
+            p.update_all_data()
+
+        return response     # the response is the redirect, so we return it
+
+        # ALTERNATIVE APPROACH TO 'RE-ORDERING' THE BEHAVIOR OF THIS FORM_VALID METHOD:
+        # do the work of the super() call manually: save the form, redirect to appropriate place. result is identical, and
+        # no call to super() is needed:
+        # form.save()
+        # round_profiles = UserProfile.objects.filter(user__related_game_rounds=self.object)
+        # for p in round_profiles:
+        #     p.update_all_data()
+
+        # return redirect(self.get_success_url)
+
+
 
 
     def get_success_url(self):

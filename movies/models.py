@@ -5,6 +5,7 @@ from django.utils.text import slugify
 from django.db.models import F, Max, Min, Avg
 from datetime import date
 from django.db.models import Avg, Max, Min, Count, Q
+from django.core.exceptions import ObjectDoesNotExist
 
 
 
@@ -208,6 +209,40 @@ class Movie(models.Model):
         value_for_slug = self.name
         self.slug = slugify(value_for_slug, allow_unicode=True)
         super().save(*args, **kwargs)
+
+
+    def assign_user(self):
+        """When a Round is completed, this method will be called on each Movie object in the Round to 
+        update the chosen_by field to the appropriate user. Movie objects in non-completed rounds all
+        have None assigned to the chosen_by field, by default"""
+        if self.game_round.round_completed == False:
+            print('This movie is part of a Round that has not been completed yet!\
+             \nCannot assign a User to Movie until the round is completed')
+            pass
+        else:
+            try:
+                user_who_chose = self.users.get(usermoviedetail__is_user_movie=True)
+            except ObjectDoesNotExist:
+                pass # object wasn't found, so no assigment to this instance is made, just do nothing
+            else:
+                # assign the found user to this movie instance, and save it:
+                self.chosen_by = user_who_chose
+                self.save()
+
+        # Q: if you wanted to do this with the less-generic Model.DoesNotExist exception (which wouldn't
+        # require importing ObjectDoesNotExist up top), would you write:
+
+        # try:
+        #     user_who_chose = self.users.get(usermoviedetail__is_user_movie=True)
+        # except Movie.DoesNotExist:
+        #     pass
+
+        # the issue here being: I'm explicitly naming the Movie model, which seems weird to do
+        # here inside the definition of that Model itself. It's kinda Meta. it maybe doesn't even
+        # work? or is it fine because it's inside a method and Movie will have been defined? self is
+        # an instance of Movie, so self.DoesNotExist doesn't make sense -- the exception exists
+        # on the class itself, Movie; instance.DoesNotExist probably wouldn't find it....
+
 
 
 # NOT an intermediary table;  connected via OneToOne to the default User model

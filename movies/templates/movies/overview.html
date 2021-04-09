@@ -1,0 +1,52 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+<title>Overview</title>
+{% endblock title %}
+
+{% block page_header %}
+<h2>All the Hurting...</h2>
+{% endblock page_header %}
+
+
+{% block content %}
+
+<!-- <p>Overview of all Movies watched across all rounds.<br>
+Click a Movie or User name for details.</p>
+<br>
+
+<h5 class="border-bottom pb-2 mb-4"><small>r&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Movie<span class="float-right">Responsible Party / Avg. Score</small></span></h5> -->
+
+<p>Rounds Completed: <b>{{ game_rounds|length }}</b><br>
+Total Movies Watched: <b>{{ all_movies|length }}</b></p>
+<br>
+
+<ul class="pl-0" style="list-style-type:none">
+{% for round in game_rounds %}
+  {% for movie in round.movies_from_round.all %}
+    {% if forloop.counter ==  1 %}
+    <li class="mb-1"><a href="{{ round.get_absolute_url }}"><b>{{ round.round_number }}</b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
+        <span class="float-right"><a href="{{ movie.chosen_by.userprofile.get_absolute_url }}">{{ movie.chosen_by.username }}</a>&nbsp;&nbsp;<small>/&nbsp;&nbsp;{{ movie.average_rating}}</small></span></li>
+    {% else %}
+    <li class="mb-1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
+        <span class="float-right"><a href="{{ movie.chosen_by.userprofile.get_absolute_url }}">{{ movie.chosen_by.username }}</a>&nbsp;&nbsp;<small>/&nbsp;&nbsp;{{ movie.average_rating}}</small></span></li>
+    {% endif %}
+
+  {% endfor %}
+  <div class="mb-3">
+  </div>
+{% endfor %}
+</ul>
+
+
+
+
+
+
+
+
+{% endblock content %}
+
+
+

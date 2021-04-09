@@ -4,7 +4,7 @@ from django.views.generic.base import RedirectView
 from .views import (IndexPageView, MovieDetail, OldMovieDetail, MembersView, AddMovieView,
     process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundView, 
     ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, 
-    SettingsView, UserResultsView, update_points, UserProfileView)
+    SettingsView, UserResultsView, update_points, UserProfileView, OverviewView)
 
 app_name = 'movies'
 urlpatterns = [
@@ -16,6 +16,7 @@ urlpatterns = [
     path('members/', MembersView.as_view(), name='members'),
     path('add_movie/', AddMovieView.as_view(), name='add_movie'),
 
+    path('overview/', OverviewView.as_view(), name='overview'),
     # note that this view does not render a page; the relevant form is rendered by the 'movie' view,
     # and then THIS view is called as a POST request when the form is submitted:
     path('add_details/<int:movie_pk>/', process_details, name='add_details'),

@@ -79,5 +79,20 @@ def add_trophies():
 
 
 
+# this function is deprecated -- use the Movie model method 'assign_movie'
+def assign_user_to_movie(movie_ob):
+    """utility function to update old movie records; this behavior will be written into active site code for future rounds"""
+    # movie_ob must be a movie object from the database (Movie record instance)
+
+    user_who_chose = movie_ob.users.get(usermoviedetail__is_user_movie=True)
+
+    movie_ob.chosen_by = user_who_chose
+
+    movie_ob.save()
+
+    print('{} record was updated: chosen_by field populated with {}'.format(movie_ob.name, user_who_chose.username))
+
+
+
 
 

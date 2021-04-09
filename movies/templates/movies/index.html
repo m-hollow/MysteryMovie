@@ -6,9 +6,6 @@
 {% endblock title %}
 
 
-<p>Members, please <a href="{% url 'login' %}">login</a> here.</p>
-<p>Need an account? <a href="{% url 'register' %}">Register</a> here.</p>
-
 {% block page_header %}
   {% if current_round %}
     {% if not current_round.round_completed %}
@@ -93,4 +90,3 @@ three p tags, this seems to work fine. -->
 {% endblock content %}
 
 
-<!-- <span class="float-right" style="font-size:16px;">Date Watched</span> -->
