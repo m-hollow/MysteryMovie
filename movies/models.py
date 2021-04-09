@@ -180,11 +180,14 @@ class Movie(models.Model):
     def average_rating(self):
         # aggregate returns a dict
         average_dict = self.usermoviedetail_set.aggregate(avg_rating=Avg('star_rating'))  # note: quotes required on named field!!
-        if average_dict['avg_rating']:
+        if self.game_round.round_completed == False:
+            return 0    # we need to catch any movies in an incomplete round, because if they DO have scores submitted, they will
+                        # be sorted.
+        elif average_dict['avg_rating']:
             return round(average_dict['avg_rating'], 1) # round the average to one decimal place
         else:
-            return -1   # this is gaming things a bit; OverviewView sorts a queryset of movies and looks at average rating;
-                        # movies in an incomplete round will return NoneType, which can't be rounded.
+            return 0   # this is gaming things a bit; OverviewView sorts a queryset of movies and looks at average rating;
+                        # movies with no ratings submitted will return NoneType, which can't be rounded
 
     class Meta:
         ordering = ['date_watched']
