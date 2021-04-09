@@ -100,11 +100,12 @@ class OverviewView(LoginRequiredMixin, ListView):
         if self.kwargs['sort_by'] == "round":
             queryset = Movie.objects.order_by('game_round__round_number')
 
+        # not actually using this one in sort drop-down
         elif self.kwargs['sort_by'] == "movie":
             queryset = Movie.objects.order_by('name')
 
         elif self.kwargs['sort_by'] == "user":
-            queryset = Movie.objects.order_by('chosen_by__username')
+            queryset = Movie.objects.order_by('-chosen_by__username')
 
         elif self.kwargs['sort_by'] == "rating":
             queryset = sorted(Movie.objects.all(), key=lambda x: x.average_rating, reverse=True)
