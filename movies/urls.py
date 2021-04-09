@@ -16,7 +16,7 @@ urlpatterns = [
     path('members/', MembersView.as_view(), name='members'),
     path('add_movie/', AddMovieView.as_view(), name='add_movie'),
 
-    path('overview/', OverviewView.as_view(), name='overview'),
+    path('overview/<str:sort_by>/', OverviewView.as_view(), name='overview'),
     # note that this view does not render a page; the relevant form is rendered by the 'movie' view,
     # and then THIS view is called as a POST request when the form is submitted:
     path('add_details/<int:movie_pk>/', process_details, name='add_details'),

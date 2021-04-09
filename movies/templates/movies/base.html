@@ -37,7 +37,7 @@
   <!--         <a class="nav-link {% if url_name == 'trophies' %}  active {% endif %}" href="{% url 'movies:trophies' %}">Trophies</a> -->
 
           <a class="nav-link {% if url_name == 'results' %} active {% endif %}" href="{% url 'movies:results' %}">Results</a>
-          <a class="nav-link {% if url_name == 'overview' %} active {% endif %}" href="{% url 'movies:overview' %}">All</a>
+          <a class="nav-link {% if url_name == 'overview' %} active {% endif %}" href="{% url 'movies:overview' sort_by='round' %}">All</a>
         {% endwith %}
       </nav>
     </div>

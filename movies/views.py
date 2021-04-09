@@ -88,18 +88,37 @@ class SettingsView(LoginRequiredMixin, TemplateView):
 
 
 class OverviewView(LoginRequiredMixin, ListView):
-    model = GameRound
+    model = Movie
     template_name = 'movies/overview.html'
-    context_object_name = 'game_rounds'
+    context_object_name = 'movies'
 
     login_url = 'login'
+
+
+    def get_queryset(self):
+
+        if self.kwargs['sort_by'] == "round":
+            queryset = Movie.objects.order_by('game_round__round_number')
+
+        elif self.kwargs['sort_by'] == "movie":
+            queryset = Movie.objects.order_by('name')
+
+        elif self.kwargs['sort_by'] == "user":
+            queryset = Movie.objects.order_by('chosen_by__username')
+
+        elif self.kwargs['sort_by'] == "rating":
+            queryset = sorted(Movie.objects.all(), key=lambda x: x.average_rating, reverse=True)
+
+        return queryset
+
+
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        all_movies = Movie.objects.all()
+        all_rounds = GameRound.objects.all()
 
-        context['all_movies'] = all_movies
+        context['rounds'] = all_rounds
 
 
         return context

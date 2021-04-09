@@ -18,10 +18,59 @@ Click a Movie or User name for details.</p>
 
 <h5 class="border-bottom pb-2 mb-4"><small>r&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Movie<span class="float-right">Responsible Party / Avg. Score</small></span></h5> -->
 
-<p>Rounds Completed: <b>{{ game_rounds|length }}</b><br>
-Total Movies Watched: <b>{{ all_movies|length }}</b></p>
+<p>Rounds Completed: <b>{{ rounds|length }}</b><br>
+Total Movies Watched: <b>{{ movies|length }}</b></p>
+
+<!-- <span class="float-right">Sort By:&nbsp;&nbsp;&nbsp;
+<a href="{% url 'movies:overview' sort_by='movie' %}"><b>Movie</b></a>&nbsp;&nbsp;<small>|</small>&nbsp;&nbsp;
+<a href="{% url 'movies:overview' sort_by='round' %}"><b>Round</b></a>&nbsp;&nbsp;<small>|</small>&nbsp;&nbsp;
+<a href="{% url 'movies:overview' sort_by='user' %}"><b>Member</b></a>&nbsp;&nbsp;<small>|</small>&nbsp;&nbsp;
+<a href="{% url 'movies:overview' sort_by='rating' %}"><b>Avg. Rating</b></a>
+</span>
+<br>
+<br> -->
+
+<div class="float-right dropdown show">
+  <a class="btn btn-sm btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+    Sort By...
+  </a>
+  <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+    <a class="dropdown-item" href="{% url 'movies:overview' sort_by='round' %}">Round</a>
+    <a class="dropdown-item" href="{% url 'movies:overview' sort_by='user' %}">Member</a>
+    <a class="dropdown-item" href="{% url 'movies:overview' sort_by='rating' %}">Avg. Rating</a>
+<!--     <a class="dropdown-item" href="{% url 'movies:overview' sort_by='movie' %}">Movie</a> -->
+  </div>
+</div>
+
+<br>
 <br>
 
+<div>
+
+<h5 = class="border-bottom pb-2 mb-4"><small>Round /</small> Movie<span class="float-right">Member<small> / Avg. Rating</small></span></h5>
+<ul class="pl-0" style="list-style-type:none">
+{% for movie in movies %}
+    
+    <li class="mb-1"><a href="{{ movie.game_round.get_absolute_url }}">{{ movie.game_round.round_number }}</a>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
+
+    {% if not movie.chosen_by %}
+        <span class="float-right">???</span></li>
+    {% else %}
+    <span class="float-right"><a href="{{ movie.chosen_by.userprofile.get_absolute_url }}">{{ movie.chosen_by.username }}</a>&nbsp;&nbsp;<small>/&nbsp;&nbsp;{{ movie.average_rating}}</small>
+<!--     &nbsp;&nbsp;<small>-</small>&nbsp;&nbsp;
+    <small>{{ movie.date_watched|date:'M d, y'}}</small> -->
+    </span></li>
+    {% endif %}
+
+{% endfor %}
+
+</ul>
+</div>
+
+
+<!-- <div>
 <ul class="pl-0" style="list-style-type:none">
 {% for round in game_rounds %}
   {% for movie in round.movies_from_round.all %}
@@ -51,10 +100,7 @@ Total Movies Watched: <b>{{ all_movies|length }}</b></p>
   </div>
 {% endfor %}
 </ul>
-
-
-
-
+</div> -->
 
 
 
