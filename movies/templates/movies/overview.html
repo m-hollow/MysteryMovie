@@ -27,10 +27,23 @@ Total Movies Watched: <b>{{ all_movies|length }}</b></p>
   {% for movie in round.movies_from_round.all %}
     {% if forloop.counter ==  1 %}
     <li class="mb-1"><a href="{{ round.get_absolute_url }}"><b>{{ round.round_number }}</b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
+
+        {% if not movie.chosen_by %}
+        <span class="float-right">???</span></li>
+        {% else %}
         <span class="float-right"><a href="{{ movie.chosen_by.userprofile.get_absolute_url }}">{{ movie.chosen_by.username }}</a>&nbsp;&nbsp;<small>/&nbsp;&nbsp;{{ movie.average_rating}}</small></span></li>
+        {% endif %}
+
+
     {% else %}
     <li class="mb-1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
+
+        {% if not movie.chosen_by %}
+        <span class="float-right">???</span></li>
+        {% else %}
         <span class="float-right"><a href="{{ movie.chosen_by.userprofile.get_absolute_url }}">{{ movie.chosen_by.username }}</a>&nbsp;&nbsp;<small>/&nbsp;&nbsp;{{ movie.average_rating}}</small></span></li>
+        {% endif %}
+
     {% endif %}
 
   {% endfor %}
