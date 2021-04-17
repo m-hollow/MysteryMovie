@@ -119,8 +119,10 @@ class OverviewView(LoginRequiredMixin, ListView):
 
         all_rounds = GameRound.objects.all()
 
-        context['rounds'] = all_rounds
+        completed_rounds = all_rounds.filter(round_completed=True)
 
+        context['rounds'] = all_rounds
+        context['completed_rounds'] = completed_rounds
 
         return context
 
