@@ -356,7 +356,10 @@ class UserProfileView(LoginRequiredMixin, DetailView):
 
         round_count = GameRound.objects.filter(round_completed=True).count()
 
-        total_participants = GameRound.objects.all().aggregate(summed=Count('participants')) # this returns a dict
+        # bug found and fixed here: you did GameRound.objects.all(), which including counting current, incomplete round
+        # participants; you only want to count total number of participants in -concluded- rounds!
+        total_participants = GameRound.objects.exclude(round_completed=False).aggregate(summed=Count('participants')) # this returns a dict
+
         p_summed = total_participants['summed']
 
         guess_max = (p_summed - round_count)
