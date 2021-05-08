@@ -354,7 +354,7 @@ class UserProfileView(LoginRequiredMixin, DetailView):
 
         guess_points = int((self.object.total_correct_guess_points / 2))
 
-        round_count = GameRound.objects.count()
+        round_count = GameRound.objects.filter(round_completed=True).count()
 
         total_participants = GameRound.objects.all().aggregate(summed=Count('participants')) # this returns a dict
         p_summed = total_participants['summed']
