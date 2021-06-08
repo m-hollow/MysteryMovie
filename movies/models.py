@@ -141,6 +141,23 @@ class UserRoundDetail(models.Model):
         return 'Round {} results for {}'.format(self.game_round.round_number, self.user.username)
 
 
+    def update_average_rating(self):
+        # a movie has no average rating yet if the round isn't completed; average ratings are ONLY relevant
+        # after a round has been completed
+        if not self.game_round.round_completed:
+            print('Cannot update movie_average_rating at this time: round connected to this URD is not complete')
+        else:
+            try:
+                movie = Movie.objects.get(chosen_by=self.user, game_round=self.game_round)
+            except Movie.DoesNotExist:
+                print('could not find a Movie based on provided GameRound and ChosenBy objects; perhaps nobody claimed this movie?')
+            else:
+                average_score = movie.average_rating  # call the property average_rating of the Movie object
+                self.movie_average_rating = average_score # assign it to this URD instance
+                self.save()     # save this instance
+
+
+
 class Movie(models.Model):
     name = models.CharField(max_length=150, verbose_name='Movie Title')
     year = models.PositiveIntegerField(null=True, verbose_name='Year Released')
@@ -149,7 +166,6 @@ class Movie(models.Model):
 
     game_round = models.ForeignKey(GameRound, default="", on_delete=models.CASCADE, related_name='movies_from_round')
 
-    # NOTE: THIS FIELD CURRENTLY NOT BEING USED, AND NEVER ACTUALLY GETS ASSIGNED TO !!! (it was put here for quick-n-dirty access)
     chosen_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 
         related_name='chosen_movie', null=True, blank=True, verbose_name="Chosen By User")
 
@@ -181,12 +197,12 @@ class Movie(models.Model):
         # aggregate returns a dict
         average_dict = self.usermoviedetail_set.aggregate(avg_rating=Avg('star_rating'))  # note: quotes required on named field!!
         if self.game_round.round_completed == False:
-            return 0    # we need to catch any movies in an incomplete round, because if they DO have scores submitted, they will
+            return float(0.0)    # we need to catch any movies in an incomplete round, because if they DO have scores submitted, they will
                         # be sorted.
         elif average_dict['avg_rating']:
             return round(average_dict['avg_rating'], 1) # round the average to one decimal place
         else:
-            return 0   # this is gaming things a bit; OverviewView sorts a queryset of movies and looks at average rating;
+            return float(0.0)   # this is gaming things a bit; OverviewView sorts a queryset of movies and looks at average rating;
                         # movies with no ratings submitted will return NoneType, which can't be rounded
 
     class Meta:

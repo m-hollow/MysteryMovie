@@ -663,7 +663,7 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         # assign the rank to the form's model (ForeignKey, rank is the 'one')
         form.instance.rank = round_rank_object
-        form.instance.movie_average_rating = movie_avg
+        form.instance.movie_average_rating = movie_avg  # this no longer works, because movie_avg will be 0
 
         if user_rank == 1:
             form.instance.winner_bool = True
@@ -859,10 +859,25 @@ class CommitGameRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         response = super().form_valid(form)     # call to super saves form and returns redirect object
 
+        # do other stuff that can only be done after round has already been updated (saved) in database....
+
         # the following update_all_data calls must be made -after- form has been saved, or they won't include this round's URDs
         round_profiles = UserProfile.objects.filter(user__related_game_rounds=self.object) # get profiles of users in this round
         for p in round_profiles:
             p.update_all_data()
+
+
+        # get urds to update movie avg (fix for Movie property side-effect); like all data calls above, MUST occur after
+        # round has been saved (otherwise Movie average rating returns 0, becuase round_completed = False).
+        # note: this will work for future submissions of game rounds, but won't work for already submitted rounds
+        # where this code wasn't yet written; you'll need to manually updated those rounds, running same code below
+        # in shell on server....
+        urds = UserRoundDetail.objects.filter(game_round=self.object) # only get urds for current round
+
+        # update the average rating field based on the 
+        for urd in urds:
+            urd.update_average_rating()
+
 
         return response     # the response is the redirect, so we return it
 
