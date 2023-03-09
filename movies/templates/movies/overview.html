@@ -51,9 +51,17 @@ Total Movies Watched: <b>{{ movies|length }}</b></p>
 <ul class="pl-0" style="list-style-type:none">
 {% for movie in movies %}
     
-    <li class="mb-1"><a href="{{ movie.game_round.get_absolute_url }}">{{ movie.game_round.round_number }}</a>
+    <li class="mb-1">
+        <a href="{{ movie.game_round.get_absolute_url }}">
+         {{ movie.game_round.round_number }}
+        </a>
+        {% if movie.game_round.round_number < 10 %}
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
+        {% else %}
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        <a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
+        {% endif %}
 
     {% if not movie.chosen_by %}
         <span class="float-right">???</span></li>

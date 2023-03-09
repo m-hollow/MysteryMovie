@@ -7,7 +7,8 @@ from django.views.generic import (TemplateView, ListView, DetailView, CreateView
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.http import Http404
-from django.db.models import F, Max, Min, Avg, Count
+from django.db.models import F, Max, Min, Avg, Count, Q
+from datetime import date
 
 from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank, PointsEarned)
 from .forms import AddMovieForm, UserMovieDetailForm
@@ -105,7 +106,8 @@ class OverviewView(LoginRequiredMixin, ListView):
             queryset = Movie.objects.order_by('name')
 
         elif self.kwargs['sort_by'] == "user":
-            queryset = Movie.objects.order_by('-chosen_by__username')
+            #queryset = Movie.objects.order_by('-chosen_by__username')
+            queryset = Movie.objects.annotate(avg_rating=Avg('usermoviedetail__star_rating')).order_by('-chosen_by__username', '-avg_rating')
 
         elif self.kwargs['sort_by'] == "rating":
             queryset = sorted(Movie.objects.all(), key=lambda x: x.average_rating, reverse=True)
@@ -841,6 +843,7 @@ class CommitGameRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         # I kept forgetting to input this manually on the form, so I'm making it automatic now:
         form.instance.round_completed = True    # we are committing the game round, so we set this to True automatically
+        form.instance.date_finished = date.today() # always forget to do this manually
 
         # this whole chunk is redundant now, because updating user profiles will update the profile.round_won field, which is
         # all this is doing -- you can therefore remove the next five lines of code (six including comment):
@@ -925,7 +928,8 @@ class OldRoundView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        round_movies = self.object.movies_from_round.all()  # uses reverse manager defined in Movie model
+        #round_movies = self.object.movies_from_round.all()  # uses reverse manager defined in Movie model
+        round_movies = self.object.movies_from_round.order_by('-date_watched') # uses reverse manager defined in Movie model
         #round_participants = self.object.participants.all() # not used now, since we loop through movies instead of participants to build user_movie_pairs
 
 

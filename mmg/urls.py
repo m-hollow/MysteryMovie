@@ -34,5 +34,3 @@ if settings.DEBUG:
 
     # use debug_toolbar in development
     urlpatterns += [path('__debug__/', include(debug_toolbar.urls))]
-    
-
