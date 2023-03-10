@@ -47,19 +47,21 @@ Total Movies Watched: <b>{{ movies|length }}</b></p>
 
 <div>
 
-<h5 = class="border-bottom pb-2 mb-4"><small>Round /</small> Movie<span class="float-right">Member<small> / Avg. Rating</small></span></h5>
-<ul class="pl-0" style="list-style-type:none">
+<!-- <h5 = class="border-bottom pb-2 mb-4"><small>Round /</small> Movie<span class="float-right">Member<small> / Avg. Rating</small></span></h5> -->
+<!-- <ul class="pl-0 d-flex flex-column" style="list-style-type:none">
 {% for movie in movies %}
     
-    <li class="mb-1">
+    <li class="mb-1 d-flex justify-content-between">
+
         <a href="{{ movie.game_round.get_absolute_url }}">
          {{ movie.game_round.round_number }}
         </a>
-        {% if movie.game_round.round_number < 10 %}
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+        {% if movie.game_round.round_number == 1 %}
+        <a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>        
+        {% elif movie.game_round.round_number < 10 %}
         <a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
         {% else %}
-        &nbsp;&nbsp;&nbsp;
         <a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>
         {% endif %}
 
@@ -67,14 +69,41 @@ Total Movies Watched: <b>{{ movies|length }}</b></p>
         <span class="float-right">???</span></li>
     {% else %}
     <span class="float-right"><a href="{{ movie.chosen_by.userprofile.get_absolute_url }}">{{ movie.chosen_by.username }}</a>&nbsp;&nbsp;<small>/&nbsp;&nbsp;{{ movie.average_rating}}</small>
-<!--     &nbsp;&nbsp;<small>-</small>&nbsp;&nbsp;
-    <small>{{ movie.date_watched|date:'M d, y'}}</small> -->
+
     </span></li>
     {% endif %}
 
 {% endfor %}
+</ul> -->
 
-</ul>
+
+    <table style="width: 100%;">
+     <tr class="border-bottom">
+      <th>Round</th>
+      <th>Movie</th>
+      <th>Member</th>
+      <th>Avg.</th>
+     </tr>
+     {% for movie in movies %}
+     <tr class="">
+      <td>
+        <a href="{{ movie.game_round.get_absolute_url }}">
+         {{ movie.game_round.round_number }}
+        </a>
+      </td>
+      <td><a href="{{ movie.get_absolute_url }}?next={{ request.path|urlencode }}">{{ movie.name }}</a>    </td>
+      <td>
+        {% if not movie.chosen_by %}
+        ???
+        {% else %}
+        <a href="{{ movie.chosen_by.userprofile.get_absolute_url }}">{{ movie.chosen_by.username }}</a>
+        {% endif %}
+      </td>
+      <td>{{ movie.average_rating }}</td>
+     </tr>
+     {% endfor %}
+    </table>
+
 </div>
 
 
