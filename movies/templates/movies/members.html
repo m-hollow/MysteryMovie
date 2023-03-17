@@ -99,7 +99,7 @@
 
 <br>
 
-<h4 >Loathed Movies</h4>
+<h4>Loathed Movies</h4>
 
 <h5 class="border-bottom pb-2 mb-4"><small>Member</small><span class="float-right"><small>Disliked Movie Points</small></span></h5>
 
@@ -119,6 +119,52 @@
   {% endfor %}
   </ul>
   <i>Players earn +1 point for every 1 star rating of their movies.</i><br>
+
+<br>
+
+<h4>Unseen Movies</h4>
+
+<h5 class="border-bottom pb-2 mb-4"><small>Member</small><span class="float-right"><small>Unseen Movie Points</small></span></h5>
+
+  <ul class="pl-0" style="list-style-type:none">
+  {% for profile in profiles_by_unseen %}
+    {% if forloop.counter == 1 %}
+    <li><h4><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
+    <span class="float-right"> {{ profile.total_unseen_movie_points }} </span>
+    </h4></li>
+    {% else %}    
+    <li><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
+    <span class="float-right"> {{ profile.total_unseen_movie_points }} </span>
+    </li>
+    {% endif %}
+  {% empty %}
+    <p>There are currently no members in the database.</p>
+  {% endfor %}
+  </ul>
+  <i>Players earn +1 point for every member that had not seen their movie choice.</i><br>
+
+<br>
+
+<h4>Known Movies</h4>
+
+<h5 class="border-bottom pb-2 mb-4"><small>Member</small><span class="float-right"><small>Known Movie Points</small></span></h5>
+
+  <ul class="pl-0" style="list-style-type:none">
+  {% for profile in profiles_by_known %}
+    {% if forloop.counter == 1 %}
+    <li><h4><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
+    <span class="float-right"> {{ profile.total_known_movie_points }} </span>
+    </h4></li>
+    {% else %}    
+    <li><a href="{{ profile.get_absolute_url }}">{{ profile.user.username }}</a>
+    <span class="float-right"> {{ profile.total_known_movie_points }} </span>
+    </li>
+    {% endif %}
+  {% empty %}
+    <p>There are currently no members in the database.</p>
+  {% endfor %}
+  </ul>
+  <i>Players earn +1 point for every member that had heard of their movie choice.</i><br>
 
 <br>
 

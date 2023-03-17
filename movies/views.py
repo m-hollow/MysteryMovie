@@ -343,10 +343,6 @@ class UserProfileView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-
-
-
-
         # get the user of this UserProfile instance
         user = self.object.user
 
@@ -1315,6 +1311,9 @@ class MembersView(LoginRequiredMixin, ListView):
         profiles_by_liked = self.queryset.order_by('-total_liked_movie_points')
         profiles_by_disliked = self.queryset.order_by('-total_disliked_movie_points')
 
+        profiles_by_known = self.queryset.order_by('-total_known_movie_points')
+        profiles_by_unseen = self.queryset.order_by('-total_unseen_movie_points')
+
         completed_game_rounds = GameRound.objects.filter(round_completed=True).order_by('-date_started')
 
         context['game_rounds'] = completed_game_rounds
@@ -1323,6 +1322,8 @@ class MembersView(LoginRequiredMixin, ListView):
         context['profiles_by_guesses'] = profiles_by_guesses
         context['profiles_by_liked'] = profiles_by_liked
         context['profiles_by_disliked'] = profiles_by_disliked
+        context['profiles_by_known'] = profiles_by_known
+        context['profiles_by_unseen'] = profiles_by_unseen
 
         return context
 
