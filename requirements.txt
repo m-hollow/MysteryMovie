@@ -9,3 +9,4 @@ mysqlclient==2.0.1
 pytz==2020.1
 soupsieve==2.0.1
 sqlparse==0.4.1
+wheel==0.40.0
