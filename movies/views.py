@@ -112,6 +112,8 @@ class OverviewView(LoginRequiredMixin, ListView):
         elif self.kwargs['sort_by'] == "rating":
             queryset = sorted(Movie.objects.all(), key=lambda x: x.average_rating, reverse=True)
 
+        queryset = queryset.exclude(game_round__round_number=20)
+
         return queryset
 
 
@@ -267,7 +269,7 @@ class ResultsView(LoginRequiredMixin, TemplateView):
 
 
         # get previous game round objects, to provide links to view their results at bottom of main Results page
-        previous_game_rounds = GameRound.objects.filter(active_round=False, round_completed=True).order_by('-round_number')
+        previous_game_rounds = GameRound.objects.filter(active_round=False, round_completed=True).exclude(round_number=20).order_by('-round_number')
 
         # weed through these and see what is / isn't actually getting used; I think round_movies is useless...
         context['previous_game_rounds'] = previous_game_rounds
