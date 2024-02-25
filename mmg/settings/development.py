@@ -17,7 +17,7 @@ env = environ.Env(
     DEBUG=(bool, True)
 )
 
-environ.Env.read_env()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 
@@ -40,6 +40,9 @@ environ.Env.read_env()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent   # see above explanations. django default of this line
                                                            # has two (2) .parent total; I have added a third
 
+# this has to go _after_ BASE_DIR is assigned above, or initial migration will fail
+#environ.Env.read_env()
+environ.Env.read_env(env_file=str(BASE_DIR) + '/.env') 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
@@ -191,8 +194,9 @@ LOGIN_REDIRECT_URL = 'movies:index'   # same as below
 LOGOUT_REDIRECT_URL = 'login'  # using this now because using 'next' was messing up w/ sessions variable
 
 
-# workaround to get debug_toolbar working, still not clear why it's necessary:
+# workaround to get debug_toolbar working, still not clear why it's necessary;
+# switch the bool value to False when you want to disable debug tool bar from running while still having debug=True for dev
 DEBUG_TOOLBAR_CONFIG = {
-    "SHOW_TOOLBAR_CALLBACK" : lambda request: True,
+    "SHOW_TOOLBAR_CALLBACK" : lambda request: False,
 }
 

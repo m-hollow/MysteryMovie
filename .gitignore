@@ -11,6 +11,7 @@ mmg_ve
 
 # Environments
 .env
+.env-prod
 *.env
 venv
 venv/

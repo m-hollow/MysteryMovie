@@ -24,6 +24,8 @@ class GameRound(models.Model):
     round_completed = models.BooleanField(choices=bool_choices, default=False, verbose_name="Round Already Completed?")
 
     date_started = models.DateField(default=date.today, null=True, verbose_name="Round Start Date")
+    # this should never have had default=date.today on it, it's why you always have an incorrect finished date; until
+    # this is removed + migrated, you need to be sure to udpate the finished value manually when concluding a round
     date_finished = models.DateField(default=date.today, null=True, blank=True, verbose_name="Round Finished Date")
 
     # QUESTION: what would unique=True on this field actually do / mean ?

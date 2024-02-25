@@ -74,8 +74,8 @@ three p tags, this seems to work fine. -->
     <h4 class="border-bottom pb-2 mb-4">Participants</h4>
 
     <ul class="pl-0" style="list-style-type:none">
-    {% for pair in current_round_pairs %}
-      <li><a href="{{ pair.1.get_absolute_url }}">{{ pair.0.username }}</a></li>
+    {% for round_user in current_round.participants.all %}
+      <li><a href="{{ round_user.userprofile.get_absolute_url }}">{{ round_user.username }}</a></li>
     {% empty %}
       <li>The current round has no Participants.</li>
     {% endfor %}

@@ -25,9 +25,13 @@ class IndexPageView(LoginRequiredMixin, ListView):
 
     login_url = 'login'
 
+    # this is a ListView because it shows all movies from current round; the self.object_list is the qs of movies
+    # returned from this call
+    # when you override get_queryset, you don't need to define model=Movie above
     def get_queryset(self):
-        current_round = GameRound.objects.filter(active_round=True).last()
-        queryset = Movie.objects.filter(game_round=current_round).order_by('-date_watched')
+
+        self.current_round = GameRound.objects.filter(active_round=True).last() # self so we can pass it to the context in get_context_data without needing to query for it again
+        queryset = Movie.objects.filter(game_round=self.current_round).order_by('-date_watched')
 
         return queryset
 
@@ -37,27 +41,7 @@ class IndexPageView(LoginRequiredMixin, ListView):
 
         date_today = timezone.now()
 
-        # if there isn't a current round, the current_round name will have a value of None, which can be checked
-        # against conditionally in the template
-        # (make sure that calling .last() on an empty Queryset actually does return None...)
-        current_round = GameRound.objects.filter(active_round__exact=True).last() # use last() in case there is more than one (though there shouldn't be)
-
-        current_round_pairs = []
-
-        if current_round:
-            current_round_participants = current_round.participants.all()   # note the.all() on the connection !
-
-            for p in current_round_participants:
-                profile = UserProfile.objects.get(user=p)
-                current_round_pairs.append((p, profile))
-
-        # this will leave current_round_pairs empty, which is fine
-        else:
-            pass
-
-
-        context['current_round'] = current_round
-        context['current_round_pairs'] = current_round_pairs
+        context['current_round'] = self.current_round
         context['date_today'] = date_today
 
         return context
