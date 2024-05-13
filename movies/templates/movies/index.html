@@ -46,7 +46,7 @@ three p tags, this seems to work fine. -->
     {% if current_round.round_completed %}
     Date Completed:<span class="float-right">{{ current_round.date_finished }}</span><br>
     {% endif %}
-    # Participants:<span class="float-right">{{ current_round_pairs|length }}</span><br>
+    # Participants:<span class="float-right">{{ current_round.participants|length }}</span><br>
     # Movies Watched:<span class="float-right">{{ movies|length }}</span></p>
 
     <br>
