@@ -30,7 +30,7 @@
 <h5 class="border-bottom pb-2 mb-3">Points Earned For Correct Guesses<span class="float-right"><small><i>{{ guess_points_total }} Total</i></small></span></h5>
 <ul class="pl-3" style='list-style-type:none'>
     {% for point in guess_points %}
-      <li>+2&nbsp;&nbsp;&nbsp;{{ point.point_string }}</li>
+      <li>+{{ point_values.guess_point_value }}&nbsp;&nbsp;&nbsp;{{ point.point_string }}</li>
     {% empty %}
       <p>{{ user_round_details.user.username }} didn't make any correct guesses, ouch!</p>
     {% endfor %}

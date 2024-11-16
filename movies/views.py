@@ -6,18 +6,41 @@ from django.contrib.auth.decorators import login_required
 from django.views.generic import (TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView)
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.db.models import F, Max, Min, Avg, Count, Q
-from datetime import date
+from datetime import date, datetime, timedelta
 
-from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank, PointsEarned)
+from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank, PointsEarned, PartyState, PartyGoers)
 from .forms import AddMovieForm, UserMovieDetailForm
+
+import json
+import traceback
 
 # Note: using get_user_model and settings.AUTH_USER_MODEL are unneccessary in this project, as you are
 # using the default django admin User model. You can rewrite the models and views to simply access User
 # and import it as done above.
 
+# For debugging The Party
+party_verbose = False
 
+def ShallWeParty(kwargs, pk='movie'):
+    idx = kwargs['pk'] if 'pk' in kwargs else None
+    
+    if not pk == 'movie':
+        idx = None
+    
+    # find the game round object is that has active = True (only one will ever have this value)
+    if GameRound.objects.filter(active_round=True).exists():
+        current_round = GameRound.objects.filter(active_round=True).last()
+        print("current_round.round_completed:" + str(current_round.round_completed))
+        if current_round.round_completed and (idx is None or idx == current_round.id):
+            # If the current active round is completed, but the party state is < the films involved, redirect to the Results Party for The Reveals.
+            round_films = Movie.objects.filter(game_round_id=current_round)
+            if PartyState.objects.count() == 0 or PartyState.objects.last().idx <= len(round_films):
+                return True
+
+    return False
+    
 class IndexPageView(LoginRequiredMixin, ListView):
     #queryset = Movie.objects.order_by('-date_watched') # we need get_querset override so we can grab round object...
     template_name = 'movies/index.html'
@@ -43,6 +66,8 @@ class IndexPageView(LoginRequiredMixin, ListView):
 
         context['current_round'] = self.current_round
         context['date_today'] = date_today
+        if ShallWeParty(kwargs):
+            context['the_party_is_on'] = True
 
         return context
 
@@ -73,6 +98,13 @@ class SettingsView(LoginRequiredMixin, TemplateView):
 
 
 class OverviewView(LoginRequiredMixin, ListView):
+    def dispatch(self, request, *args, **kwargs):
+        if ShallWeParty(kwargs):
+            return redirect('/resultsparty/')
+        
+        # Otherwise dispatch as normal.
+        return super().dispatch(request, *args, **kwargs)
+
     model = Movie
     template_name = 'movies/overview.html'
     context_object_name = 'movies'
@@ -114,6 +146,15 @@ class OverviewView(LoginRequiredMixin, ListView):
 
 
 
+def get_point_values():
+    return { 
+        "liked_point_value":   2,
+        "loathed_point_value": 2,
+        "guess_point_value":   2,
+        "unseen_point_value":  1, 
+        "known_point_value":   1
+    }
+
 # this is not a DetailView becuase that requires a pk argument in the url, and this link appears in navbar on base.html,
 # which I (currently) have no way to send vars to (for the url to capture).
 class ResultsView(LoginRequiredMixin, TemplateView):
@@ -126,9 +167,16 @@ class ResultsView(LoginRequiredMixin, TemplateView):
 
     login_url = 'login'
 
+    def dispatch(self, request, *args, **kwargs):
+        if ShallWeParty(kwargs):
+            return redirect('/resultsparty/')
+        
+        # Otherwise dispatch as normal.
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
+        
         # find the game round object is that has active = True (only one will ever have this value)
         if GameRound.objects.filter(active_round=True).exists():
             current_round = GameRound.objects.filter(active_round=True).last()
@@ -272,14 +320,241 @@ class ResultsView(LoginRequiredMixin, TemplateView):
 
         return context
 
+class ResultsPartyView(LoginRequiredMixin, TemplateView):
+    """
+    When Round is semi-complete (users, but not round), this is used to display the results of the round
+    in a stepped/timed process.
 
+    """
+    template_name = 'movies/resultsparty.html'
+
+    login_url = 'login'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # find the game round object is that has active = True (only one should ever have this value)
+        current_active_round_idx = 0
+        
+        if GameRound.objects.filter(active_round=True).exists():
+            round_idx = GameRound.objects.filter(active_round=True).last().round_number
+            current_active_round_idx = round_idx
+
+        # Allow override for history
+        if 'pk' in kwargs:
+            round_idx = kwargs['pk']
+
+        if round_idx > 1:
+            context['prev_round'] = round_idx - 1
+        if round_idx < current_active_round_idx:
+            context['next_round'] = round_idx + 1
+            context['last_round'] = current_active_round_idx
+
+        if GameRound.objects.filter(round_number=round_idx).exists():
+            current_round = GameRound.objects.filter(round_number=round_idx).last()
+
+            # Verify the round is semi-complete.
+            all_finalized = True
+            user_details = UserRoundDetail.objects.filter(game_round_id=current_round.id)
+            for user_detail in user_details:
+                if not user_detail.finalized_by_admin:
+                    all_finalized = False
+            
+            if not all_finalized:
+                context['current_round'] = current_round
+                context["error"] = "Round " + str(current_round.id) + " is not presently ready to party."
+                
+                return context
+        else:
+            current_round = None
+            context["error"] = "No active round to party with"
+            return context
+
+        context['current_round'] = current_round
+        context['body_func'] = "Party()"
+        
+        users = []
+        users_index = {}
+        user_ratings = {}
+        points_by_movie = {}
+        guesses_by_movie = {}
+
+        # get the round users
+        round_users = UserRoundDetail.objects.filter(game_round_id=current_round)
+        for round_user in round_users:
+            if round_user.user_id == current_round.winner_id:
+                context["winner_id"] = current_round.winner_id
+                context["winner_name"] = round_user.user.username
+            
+            users.append({'user_id': round_user.user_id, 'username': round_user.user.username })
+            user_ratings[round_user.user_id] = round_user.movie_average_rating
+            users_index[round_user.user_id] = round_user.user.username
+            user_points = PointsEarned.objects.filter(user_round_ob_id=round_user.id)
+            points_by_movie[round_user.user_id] = { "liked": 0, "loathed": 0, "guesses": 0, "known": 0, "unseen": 0, "total": 0 }
+            guesses_by_movie[round_user.user_id] = []
+            for user_point in user_points:
+                if user_point.point_type == "disliked":
+                    points_by_movie[round_user.user_id]["loathed"] = points_by_movie[round_user.user_id]["loathed"] + user_point.point_int
+                    points_by_movie[round_user.user_id]["total"] = points_by_movie[round_user.user_id]["total"] + user_point.point_int
+                elif user_point.point_type != "guess":
+                    points_by_movie[round_user.user_id][user_point.point_type] = points_by_movie[round_user.user_id][user_point.point_type] + user_point.point_int
+                    points_by_movie[round_user.user_id]["total"] = points_by_movie[round_user.user_id]["total"] + user_point.point_int
+        
+        films = []
+        all_guesses = {}
+        round_films = Movie.objects.filter(game_round_id=current_round)
+        idx = 1
+        for round_film in round_films:
+            print("chosen_by_id: " + str(round_film.chosen_by_id))
+            
+            films.append({'idx': idx, 'id': round_film.id, 'name': round_film.name, 'year': round_film.year, 'chosen_by_id': round_film.chosen_by_id, 'chosen_by_name': users_index[round_film.chosen_by_id], 'star_rating': user_ratings[round_film.chosen_by_id], 'stars_width': int(16 + (120 * (user_ratings[round_film.chosen_by_id] / 5))) })
+            idx += 1
+
+            # Set the winner film index
+            if (round_film.chosen_by_id == current_round.winner_id):
+                context["winner_film_id"] = round_film.id
+            
+            # guesses
+            guesses = UserMovieDetail.objects.filter(movie_id=round_film.id).order_by('user_id')
+            guesses_by_movie[round_film.chosen_by_id] = [] # index of correct user guesses by movie (actually indexed by the user who picked the movie)
+            all_guesses[round_film.id] = []
+            for guess in guesses:
+                if guess.user_id and guess.user_guess_id:
+                    all_guesses[round_film.id].append({ "user_id": guess.user_id, "user_guess_id": guess.user_guess_id, "username": users_index[guess.user_id], "guessed_username": users_index[guess.user_guess_id], "was_right": 1 if guess.user_guess_id == round_film.chosen_by_id else 0, "star_rating": guess.star_rating, "star_width": (8 + (60 * (guess.star_rating / 5.0))), "seen_previously": 1 if guess.seen_previously else 0, "heard_of": 1 if guess.heard_of else 0, "comments": guess.comments })
+                    if guess.user_guess_id == round_film.chosen_by_id:
+                        guesses_by_movie[round_film.chosen_by_id].append(guess.user_id)
+                else:
+                    all_guesses[round_film.id].append({ "user_id": guess.user_id, "user_guess_id": 0, "username": users_index[guess.user_id], "guessed_username": "-", "star_rating": guess.star_rating, "star_width": (8 + (60 * (guess.star_rating / 5.0))), "seen_previously": 1 if guess.seen_previously else 0, "heard_of": 1 if guess.heard_of else 0, "comments": guess.comments  })
+        
+        # Set current index
+        if PartyState.objects.count() == 0 or PartyState.objects.last().idx == 0:
+            # NOT STARTED
+            context['current_index'] = 0
+            context['current_film_index'] = 0;
+            context['state'] = 'READY TO PARTY'
+        elif PartyState.objects.last().idx > len(round_films):
+            # COMPLETE
+            context['current_index'] = len(round_films)
+            context['current_film_index'] = context['winner_film_id']
+            context['state'] = 'COMPLETE'
+        else:
+            # IN PROGRESS
+            context['current_index'] = PartyState.objects.last().idx
+            context['current_film_index'] = round_films[PartyState.objects.last().idx-1].id
+            context['state'] = 'IN PROGRESS'
+        
+        # For Historical Parties.
+        if round_idx < current_active_round_idx:
+            context['state'] = 'COMPLETE'
+            context['current_index'] = len(round_films)
+
+        # Assign the top-level data
+        context['round_start'] = current_round.date_started
+        context['round_end'] = current_round.date_finished
+        context['experiment_count'] = len(round_films)
+        context['users'] = users
+        context['users_json'] = users_index
+        context['films'] = films
+        context['all_guesses'] = all_guesses
+        context['points_by_movie'] = points_by_movie
+        context['guesses_by_movie'] = guesses_by_movie
+
+        return context
+
+class ResultsPartyStateIncrement(LoginRequiredMixin):
+    """
+    Backend for state incrementing.
+
+    """
+    def request(request, value):
+        data = {}
+        idx = value
+        this_user_id = request.user.id
+        
+        mmg_user = UserProfile.objects.get(user_id=this_user_id)
+        
+        if mmg_user.is_mmg_admin:
+            # Record this ping
+            try:
+                record = PartyGoers.objects.get(uid=this_user_id)
+                if record:
+                    print("UPDATE uid")
+                    record.last_ping = timezone.now()
+                    record.save()
+            except:
+                print("INSERT uid")
+                record = PartyGoers(uid=this_user_id, last_ping=timezone.now())
+                record.save()
+            
+            if PartyState.objects.count() == 0:
+                print("INSERT idx")
+                record = PartyState(idx=idx, next_time=timezone.now() + timedelta(0,2))
+                record.save()
+            else:
+                print("UPDATE idx")
+                record = PartyState.objects.last()
+                record.idx = idx
+                record.next_time = timezone.now() + timedelta(0,2)
+                record.save()
+            
+            # If the index is past the last film that means we're done partying, 
+            # so mark the round complete.
+            
+        return JsonResponse(data)
+    
+class ResultsPartyStateView(LoginRequiredMixin):
+    """
+    Backend for ajax querying.
+
+    """
+    def request(request):
+        # Record this ping
+        this_user_id = request.user.id
+        try:
+            record = PartyGoers.objects.get(uid=this_user_id)
+            if record:
+                #print("UPDATE uid")
+                record.last_ping = timezone.now()
+                record.save()
+        except:
+            #print("INSERT uid")
+            record = PartyGoers(uid=this_user_id, last_ping=timezone.now())
+            record.save()
+        
+        # Get each user's party state
+        users = []
+        partiers = PartyGoers.objects.filter()
+        for partier in partiers:
+            users.append({ "uid": partier.uid, "last_ping": partier.last_ping })
+        
+        # Get the overall party state
+        server_time = timezone.now()
+        
+        idx = 0
+        if PartyState.objects.count() == 0:
+            next_time = server_time # if we aren't ready to advance, leave as current time
+        else:
+            idx = PartyState.objects.last().idx
+            next_time = PartyState.objects.last().next_time
+            if next_time < server_time:
+                next_time = server_time
+        
+        delta = next_time - server_time
+        
+        if party_verbose:
+            if delta.total_seconds() > 0:
+                print("[{3}] [jcw] told user {0} to wait {1} to go to index {2}".format(this_user_id, delta.total_seconds(), idx, server_time))
+        data = { "idx": idx, "server_time": server_time, "next_time": next_time, "users": users }
+
+        return JsonResponse(data)
+    
 class UserResultsView(LoginRequiredMixin, DetailView):
     model = UserRoundDetail
     template_name = 'movies/user_results.html'
     context_object_name = 'user_round_details'
 
     login_url = 'login'
-
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -292,14 +567,17 @@ class UserResultsView(LoginRequiredMixin, DetailView):
         point_objects = self.object.points_earned.all()
 
         # retreive the point objects, sorting by type:
+        point_values = get_point_values()
+        
         guess_points = self.object.points_earned.filter(point_type='guess')
         unseen_points = self.object.points_earned.filter(point_type='unseen')
         known_points = self.object.points_earned.filter(point_type='known')
         liked_points = self.object.points_earned.filter(point_type='liked')
         disliked_points = self.object.points_earned.filter(point_type='disliked')
 
-        movie_points_total = (unseen_points.count() + known_points.count() + liked_points.count() + disliked_points.count())
-        guess_points_total = (guess_points.count() * 2)
+        movie_points_total = (unseen_points.count() * point_values["unseen_point_value"] + known_points.count() * point_values["known_point_value"] + liked_points.count() * point_values["liked_point_value"] + disliked_points.count() * point_values["loathed_point_value"])
+        guess_points_total = (guess_points.count() * point_values["guess_point_value"])
+
 
         context['movie_points_total'] = movie_points_total
         context['guess_points_total'] = guess_points_total
@@ -308,6 +586,8 @@ class UserResultsView(LoginRequiredMixin, DetailView):
         context['known_points'] = known_points
         context['liked_points'] = liked_points
         context['disliked_points'] = disliked_points
+        
+        context['point_values'] = point_values
 
         context['round_length'] = game_round.participants.all().count()
         context['participant_movie'] = participant_movie
@@ -317,6 +597,13 @@ class UserResultsView(LoginRequiredMixin, DetailView):
 
 
 class UserProfileView(LoginRequiredMixin, DetailView):
+    def dispatch(self, request, *args, **kwargs):
+        if ShallWeParty(kwargs, 'users'):
+            return redirect('/resultsparty/')
+        
+        # Otherwise dispatch as normal.
+        return super().dispatch(request, *args, **kwargs)
+
     model = UserProfile
     template_name = 'movies/user_profile.html'
     context_object_name = 'user_profile'
@@ -370,6 +657,14 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
     login_url = 'login'
 
+    # jcw: so we don't bounce to the success_url. perhaps NOT BEST PRACTICES?
+    def form_valid(self, form):
+        if not self.request.POST.getlist('lets'):
+            context = self.get_context_data()
+            return self.render_to_response(context)
+
+        return super().form_valid(form)
+
     # used by UserPassesTestMixin; verify user has admin prvileges (required to conclude round)
     def test_func(self):
         user = self.request.user
@@ -377,8 +672,10 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 
     def get_context_data(self, **kwargs):
+        if party_verbose:
+            print("[jcw] ConcludeRoundView.get_context_data(): {0}") # .format(traceback.format_stack()))
         context = super().get_context_data(**kwargs)
-
+        
         # grab all the participants of the round
         round_participants = self.object.participants.all()
 
@@ -431,39 +728,108 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         self.request.session['winner_name'] = winner_name
 
         context['user_round_details'] = user_round_details
+        
+        if party_verbose:
+            print("[jcw] get_context_data() returning context: {0}".format(context))
+            print("[jcw] get_context_data() returning point_queue: {0}".format(point_queue))
+            print("[jcw] Calling static method to update... context.object: {0}".format(context['object'].id))
+        
+        if self.request.POST.getlist('conclude'):
+            # Manually update every user if we've been requested to conclude the round.
+            detail_objects = UserRoundDetail.objects.filter(game_round=context['object'].id)
+            for detail_object in detail_objects:
+                c = CommitUserRoundView()
+                if party_verbose:
+                    print("[jcw] *** detail_object *** {0} [id = {1}]".format(detail_object, detail_object.id))
+                c.object = detail_object
+                c.request = self.request
+                c.update_user()
+            
+            # Manually conclude the round: taken from the now obsolete CommitGameRoundView.form_valid
+            self.object.round_completed = True
+            self.object.date_finished = date.today()
+            winner = User.objects.get(username__icontains=winner_name)
+            self.object.winner_id = winner.userprofile.user_id
 
+            # grab movies related to this round and call their assign_movie method, so movies contain FK to user who chose them:
+            round_movies = self.object.movies_from_round.all()
+
+            for movie in round_movies:
+                movie.assign_user()
+
+            self.object.save()
+            
+            # Reset the party state
+            if PartyState.objects.count() == 0:
+                record = PartyState(idx=idx, next_time=timezone.now())
+                record.save()
+            else:
+                record = PartyState.objects.last()
+                record.idx = 0
+                record.next_time = timezone.now()
+                record.save()
+
+            # do other stuff that can only be done after round has already been updated (saved) in database....
+
+            # the following update_all_data calls must be made -after- form has been saved, or they won't include this round's URDs
+            round_profiles = UserProfile.objects.filter(user__related_game_rounds=self.object) # get profiles of users in this round
+            for p in round_profiles:
+                p.update_all_data()
+
+            # get urds to update movie avg (fix for Movie property side-effect); like all data calls above, MUST occur after
+            # round has been saved (otherwise Movie average rating returns 0, becuase round_completed = False).
+            # note: this will work for future submissions of game rounds, but won't work for already submitted rounds
+            # where this code wasn't yet written; you'll need to manually updated those rounds, running same code below
+            # in shell on server....
+            urds = UserRoundDetail.objects.filter(game_round=self.object) # only get urds for current round
+
+            # update the average rating field 
+            for urd in urds:
+                urd.update_average_rating()
+            
+            # Time to party.
+            context['time_to_conclude'] = 0
+        else:
+            # Check if it is time to conclude or to party.
+            incomplete_count = 0
+            detail_objects = UserRoundDetail.objects.filter(game_round=context['object'].id)
+            for detail_object in detail_objects:
+                if party_verbose:
+                    print("[jcw] *** detail_object *** {0} [id = {1}, finalized_by_admin = {2}]".format(detail_object, detail_object.id, detail_object.finalized_by_admin))
+                if detail_object.finalized_by_admin == False:
+                    incomplete_count += 1
+            
+            if incomplete_count > 0:
+                context['time_to_conclude'] = 1
+        
         return context
-
-
-    # no longer using this, no need for it now
-    def return_winners_from_tie(self, tuple_list):
-
-        winning_tuples = sorted(tuple_list, key=lambda x : x[1], reverse=True)
-
-        # return tuples for gold and silver, bronze will be assigned None
-        if len(winning_tuple) == 2:
-            return winning_tuple[0], winning_tuple[1], None
-
-        # return tuples for gold, silver and bronze
-        elif len(winning_tuple) > 2:
-            return winning_tuple[0], winning_tuple[1], winning_tuple[2]
 
     # remember that participant is just a string name, not a User object; this is becuase request.session can't store django class objects, only
     # basic python data structures (at least, not without adding some elaborate serialization encoding and decoding)
     def get_ranked_results(self, point_queue):
-
         total_point_dict = {}
+        
+        items = point_queue.items()
+        
+        point_values = get_point_values()
 
-        for participant, results in point_queue.items():
-            total_points_for_p = ((len(results['points_by_guess']) * 2) + len(results['points_by_movie_known']) +
-                len(results['points_by_movie_unseen']) + len(results['points_by_movie_liked']) +
-                len(results['points_by_movie_disliked']))
+        for participant, results in items:
+            total_points_for_p = ((len(results['points_by_guess']) * point_values["guess_point_value"]) + 
+                (len(results['points_by_movie_known']) * point_values["known_point_value"]) +
+                (len(results['points_by_movie_unseen']) * point_values["unseen_point_value"]) + 
+                (len(results['points_by_movie_liked']) * point_values["liked_point_value"]) +
+                (len(results['points_by_movie_disliked']) * point_values["loathed_point_value"]))
 
             p_obj = User.objects.get(username__icontains=participant)
             p_movie = p_obj.related_movies.get(game_round=self.object, usermoviedetail__is_user_movie=True)
-            avg_rating = p_movie.average_rating  # this causes a fail right now on
+            avg_rating = p_movie.average_rating_incomplete # using the incomplete-allowed version here so we actually get a value to sort by for ties.
+            if party_verbose:
+                print("[jcw] avg_rating from average_rating_incomplete := {0}".format(avg_rating))
 
             total_point_dict[participant] = [total_points_for_p, avg_rating]
+
+            if party_verbose:
+                print("[jcw] total_points_for_p: %i, avg_rating: %f" % (total_points_for_p, avg_rating))
 
         # the dict created above has participant name as key, value is a list, first val in list is point total, second is avg movie score
         # now we sort the results of the dict we just built
@@ -486,27 +852,9 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         return ranked_results
 
-    # this method has been replaced by get_ranked_results and is no longer used
-    def total_points_dict_builder(self, point_queue):
-
-        total_point_dict = {}
-
-        for participant, results in point_queue.items():
-            total_points_for_p = (len((results['points_by_guess']) * 2) + len(results['points_by_movie_known']) +
-                len(results['points_by_movie_unseen']) + len(results['points_by_movie_liked']) +
-                len(results['points_by_movie_disliked']))
-
-            total_point_dict[participant] = total_points_for_p
-
-        # sort the dictionary so key-val pair with highest value is first (descending). this requires rebuilding the
-        # sorted list of tuples returned by sorted() into a new dictionary, using a dictionary comprehension:
-
-        final_dict = {k: v for k, v in sorted(total_point_dict.items(), key=lambda x: x[1], reverse=True)}
-
-        return final_dict
-
-
     def calculate_guess_points(self, participant):
+
+        point_values = get_point_values()
 
         points_by_guess = []
 
@@ -520,7 +868,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
             if umd.user_guess == user_that_chose_movie:   # can't compare against username, because in some cases value will be None (user record for movie they chose)
                 point_dict = {
-                    'point_value': 2,
+                    'point_value': point_values["guess_point_value"],
                     'point_string': 'Correctly guessed that {} chose {}'.format(umd.user_guess.username, umd.movie.name)
                 }
 
@@ -530,6 +878,8 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 
     def calculate_movie_points(self, participant):
+
+        point_values = get_point_values()
 
         points_by_movie_known = []
         points_by_movie_unseen = []
@@ -545,7 +895,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         for umd in umd_objects:
             if not umd.seen_previously:
                 point_dict_one = {
-                    'point_value': 1,
+                    'point_value': point_values['unseen_point_value'],
                     'point_string': '{} had not previously seen {}'.format(umd.user.username, umd.movie.name)
                 }
 
@@ -553,7 +903,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
             if umd.heard_of:
                 point_dict_two = {
-                    'point_value': 1,
+                    'point_value': point_values['known_point_value'],
                     'point_string': '{} had heard of {}'.format(umd.user.username, umd.movie.name)
                 }
 
@@ -562,7 +912,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
             if umd.star_rating == 1:
                 point_dict_three = {
-                    'point_value': 1,
+                    'point_value': point_values['loathed_point_value'],
                     'point_string': '{} gave {} the worst possible rating, 1 star.'.format(umd.user.username, umd.movie.name)
 
                 }
@@ -571,7 +921,7 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
             if umd.star_rating > 3:
                 point_dict_four = {
-                    'point_value': 1,
+                    'point_value': point_values['liked_point_value'],
                     'point_string': '{} rated {} higher than 3 stars.'.format(umd.user.username, umd.movie.name)
                 }
 
@@ -579,7 +929,6 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 
         return points_by_movie_known, points_by_movie_unseen, points_by_movie_liked, points_by_movie_disliked
-
 
 # view for updating each UserRoundDetail object
 class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
@@ -612,25 +961,161 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         point_queue = self.request.session['point_queue']
         ranked_results = self.request.session['ranked_results']
 
-
         this_user = self.object.user
 
         user_total_points = ranked_results[this_user.username][1]
 
+        point_values = get_point_values()
 
-        initial['correct_guess_points'] = (len(point_queue[this_user.username]['points_by_guess']) * 2)
-        initial['known_movie_points'] = len(point_queue[this_user.username]['points_by_movie_known'])
-        initial['unseen_movie_points'] = len(point_queue[this_user.username]['points_by_movie_unseen'])
-        initial['liked_movie_points'] = len(point_queue[this_user.username]['points_by_movie_liked'])
-        initial['disliked_movie_points'] = len(point_queue[this_user.username]['points_by_movie_disliked'])
+        initial['correct_guess_points'] = (len(point_queue[this_user.username]['points_by_guess']) * point_values["guess_point_value"])
+        initial['known_movie_points'] = (len(point_queue[this_user.username]['points_by_movie_known']) * point_values["known_point_value"])
+        initial['unseen_movie_points'] = (len(point_queue[this_user.username]['points_by_movie_unseen']) * point_values["unseen_point_value"])
+        initial['liked_movie_points'] = (len(point_queue[this_user.username]['points_by_movie_liked']) * point_values["liked_point_value"])
+        initial['disliked_movie_points'] = (len(point_queue[this_user.username]['points_by_movie_disliked']) * point_values["loathed_point_value"])
         initial['total_points'] = user_total_points
+
+
+        if party_verbose:
+            print("[jcw] {0}".format(initial))
 
         return initial
 
 
+    def update_user(self):
+        """Update the UserProfile object with the data saved in UserRoundObject"""
+
+        if party_verbose:
+            print("[jcw] CommitUserRoundView.update_user: self: {0}".format(self))
+            print("[jcw] CommitUserRoundView.update_user: self: {0}".format(type(self)))
+            print("[jcw] CommitUserRoundView.update_user: self: {0}".format(self.__dict__))
+        
+        # we update the related UserProfile object with all the scoring values obtained for this round
+        # UserProfile tracks global progress, not per-round.
+        this_user = self.object.user
+        this_user_name = this_user.username
+        
+        if party_verbose:
+            print("[jcw] this_user: {0} this_user_name: {1}".format(this_user, this_user_name))
+
+        user_rank = self.request.session['ranked_results'][this_user_name][0]  # first index of list is the rank int
+        movie_avg = self.request.session['ranked_results'][this_user_name][2]  # third indexof list is their movie's avg rating
+        if party_verbose:
+            print("[jcw] user_rank: {0} movie_avg: {1}".format(user_rank, movie_avg))
+    
+        # get corresponding RoundRank object
+        round_rank_object = RoundRank.objects.get(rank_int=user_rank) # there should be a 'task' to call the function that fills up the RoundRank table
+
+        # assign the rank to the form's model (ForeignKey, rank is the 'one')
+        # TEMP FORM form.instance.rank = round_rank_object
+        # TEMP FORM form.instance.movie_average_rating = movie_avg  # this no longer works, because movie_avg will be 0
+
+        # TEMP FORM if user_rank == 1:
+            # TEMP FORM form.instance.winner_bool = True
+            #user_profile.rounds_won += 1   # this logic has been moved to CommitGameRoundView's form_valid method
+
+        # i'm removing the updates to total point fields in User Profile because 1. it's super buggy and 2. we don't even need / use them
+        # update the related user profile, which stores global (all rounds) results
+        # user_profile.total_correct_guess_points += form.instance.correct_guess_points
+        # user_profile.total_known_movie_points += form.instance.known_movie_points
+        # user_profile.total_unseen_movie_points += form.instance.unseen_movie_points
+        # user_profile.total_liked_movie_points += form.instance.liked_movie_points
+        # user_profile.total_disliked_movie_points += form.instance.disliked_movie_points
+
+        #user_profile.save()
+
+        # now we need to generate Point objects that will be related to this UserRoundDetail object, and store the relevant
+        # string in their point_string field. These will be used to display detailed result data (the strings) later, in views
+        # that have no access (naturally) to the session dict used in here.
+
+        point_queue = self.request.session['point_queue']
+        this_users_points = point_queue[this_user_name]
+
+
+        # first, clear out (delete) any point object records that already exist for this user_round_object; otherwise
+        # if an admin makes edits to the rounds point totals, then hits submit not for the first time, you will have a
+        # duplicate set of point objects!
+        if PointsEarned.objects.filter(user_round_ob=self.object).exists():
+            PointsEarned.objects.filter(user_round_ob=self.object).all().delete()
+
+
+        # think through how to do all of the below in *one* pass through the this_users_points dictionary; these five loops
+        # are nearly identical -except- the distinction of point_type (stored by key) and the need to define that in the create() call;
+        # we'd need a way to assign the key's value, e.g. 'points_by_movie_unseen' to the point_type field in the create call...
+
+        # in case P has no points in the referenced list; empty list returns False
+        if this_users_points['points_by_guess']:
+            for point_dict in this_users_points['points_by_guess']:
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='guess', point_string=point_string)
+        else:
+            pass
+
+        if this_users_points['points_by_movie_known']:
+            for point_dict in this_users_points['points_by_movie_known']:         # using create() is just a convenience method that constructs the object and saves it all in one action
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='known', point_string=point_string)
+        else:
+            pass
+
+        if this_users_points['points_by_movie_unseen']:
+            for point_dict in this_users_points['points_by_movie_unseen']:
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='unseen', point_string=point_string)
+        else:
+            pass
+
+        if this_users_points['points_by_movie_liked']:
+            for point_dict in this_users_points['points_by_movie_liked']:
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='liked', point_string=point_string)
+        else:
+            pass
+
+        if this_users_points['points_by_movie_disliked']:
+            for point_dict in this_users_points['points_by_movie_disliked']:
+                point_value = point_dict['point_value']
+                point_string = point_dict['point_string']
+                PointsEarned.objects.create(user_round_ob=self.object, point_int=point_value, point_type='disliked', point_string=point_string)
+        else:
+            pass
+        
+        # Update the record: get the values and apply them to the model object directly.
+        initial = self.get_initial()
+        
+        if user_rank == 1:
+            self.object.winner_bool = 1
+        else:
+            self.object.winner_bool = 0
+
+        self.object.correct_guess_points  = initial['correct_guess_points']
+        self.object.known_movie_points    = initial['known_movie_points']
+        self.object.unseen_movie_points   = initial['unseen_movie_points']
+        self.object.liked_movie_points    = initial['liked_movie_points']
+        self.object.disliked_movie_points = initial['disliked_movie_points']
+        self.object.total_points          = initial['total_points']
+
+        self.object.rank_id               = round_rank_object
+        self.object.movie_average_rating  = movie_avg 
+
+        self.object.finalized_by_admin    = 1
+
+        self.object.save()
+        
+
     def form_valid(self, form):
         """Update the UserProfile object with the data saved in UserRoundObject"""
 
+        if party_verbose:
+            print("[jcw] CommitUserRoundView.form_valid: self: {0}".format(self))
+            print("[jcw] CommitUserRoundView.form_valid: self: {0}".format(type(self)))
+            print("[jcw] CommitUserRoundView.form_valid: self: {0}".format(self.object))
+            print("[jcw] CommitUserRoundView.form_valid: self: {0}".format(type(self.object)))
+            print("[jcw] CommitUserRoundView.form_valid: self: {0}".format(self.object.id))
+            print("[jcw] CommitUserRoundView.form_valid: self: {0}".format(type(self.object.id)))
         # we update the related UserProfile object with all the scoring values obtained for this round
         # UserProfile tracks global progress, not per-round.
         this_user = self.object.user
@@ -721,6 +1206,8 @@ class CommitUserRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         else:
             pass
 
+    def form_valid(self, form):
+        return self.render_to_response(context)
         return super().form_valid(form) # call to super() saves the form, but not the user_profile we modify in the view
 
 
@@ -905,6 +1392,13 @@ class OldRoundView(LoginRequiredMixin, DetailView):
 
     login_url = 'login'
 
+    def dispatch(self, request, *args, **kwargs):
+        if ShallWeParty(kwargs):
+            return redirect('/resultsparty/')
+        
+        # Otherwise dispatch as normal.
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -1078,6 +1572,13 @@ class OldMovieDetail(LoginRequiredMixin, DetailView):
     query_pk_and_slug = True
 
     login_url = 'login'
+
+    def dispatch(self, request, *args, **kwargs):
+        if ShallWeParty(kwargs, 'old_movie'):
+            return redirect('/resultsparty/')
+        
+        # Otherwise dispatch as normal.
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1279,6 +1780,13 @@ class UpdateDetailsView(LoginRequiredMixin, UpdateView):
 
 
 class MembersView(LoginRequiredMixin, ListView):
+    def dispatch(self, request, *args, **kwargs):
+        if ShallWeParty(kwargs):
+            return redirect('/resultsparty/')
+        
+        # Otherwise dispatch as normal.
+        return super().dispatch(request, *args, **kwargs)
+
     #queryset = User.objects.order_by('-userprofile__rounds_won').exclude(username__icontains='mmg_admin')
     queryset = UserProfile.objects.exclude(user__username__icontains='admin')
     template_name = 'movies/members.html'
