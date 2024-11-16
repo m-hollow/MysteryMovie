@@ -15,6 +15,9 @@
   <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
   <!-- put your own css file link here -->
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  
+  <script type="text/javascript" language="javascript" src="/static/js/jquery-ui-1.14.0/jquery-ui.min.js"></script>
+  <link rel="stylesheet" href="/static/js/jquery-ui-1.14.0/jquery-ui.min.css" />
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -22,13 +25,13 @@
 </head>
 
 
-<body>
+<body onload="{{ body_func }}">
   <!--<body class="text-center"> -->
 <div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
   
-  <header class="masthead">  <!-- orig. this had 'mb-auto' in the class info, which is what caused content beneath this header to drop WAY down -->
+  <header class="masthead" style="border: 0px solid blue; margin: 0">  <!-- orig. this had 'mb-auto' in the class info, which is what caused content beneath this header to drop WAY down -->
     <div class="inner">
-      <h3 class="masthead-brand">Mystery Movie Club</h3>
+      <h3 style="float: left" class="masthead-brand"><a href="/">Mystery Movie Club</a></h3>
       <nav class="nav nav-masthead justify-content-center">
         {% with url_name=request.resolver_match.url_name %}
           <a class="nav-link {% if url_name == 'index' %} active {% endif %}" href="{% url 'movies:index' %}">Current Round</a>
@@ -37,13 +40,14 @@
   <!--         <a class="nav-link {% if url_name == 'trophies' %}  active {% endif %}" href="{% url 'movies:trophies' %}">Trophies</a> -->
 
           <a class="nav-link {% if url_name == 'results' %} active {% endif %}" href="{% url 'movies:results' %}">Results</a>
+          <a class="nav-link {% if url_name == 'resultsparty' %} active {% endif %}" href="{% url 'movies:resultsparty' %}">Party</a>
           <a class="nav-link {% if url_name == 'overview' %} active {% endif %}" href="{% url 'movies:overview' sort_by='round' %}">All</a>
         {% endwith %}
       </nav>
     </div>
   </header>
 
-  <main role="main" class="">
+  <main role="main" class="" style="border: 0px solid red">
 
     <div class="mb-2">
       {% if user.is_authenticated %}
@@ -56,14 +60,13 @@
       {% endif %}
     </div>
 
-    <br>
-    <br>
+    <br />
     
     <div class="border-bottom">
       {% block page_header %}{% endblock page_header %}
     </div>
 
-    <br>
+    <br />
 
     <div class="">
     {% block content %}{% endblock content %}

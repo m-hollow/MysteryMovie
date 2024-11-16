@@ -12,18 +12,23 @@
 
 {% block content %}
 
-{% if not game_round.round_completed %}
-
 <p class="mb-2"><b>Admin Instructions:</b></p>
 <p>
-• Click a user name to review & submit their scores<br>
-• Once all users are marked <i>done</i>, review and submit the Game Round
+<ul>
+  <li>Conclude the Round.</li>
+  <li>Let's Party.</li>
+</ul>
 </p>
 
-<br>
+    <form method="post" action="{% url 'movies:conclude_round' game_round.pk %}" class="form">
+      {% csrf_token %}
+      {% bootstrap_form form %}
+      <button class="btn btn-secondary" name="conclude" value="now" type="submit"{% if not time_to_conclude %} disabled="true"{% endif %}>Conclude This Round</button>
+      <button class="btn btn-secondary" name="lets" value="party" type="submit" {% if time_to_conclude %} disabled="true"{% endif %}>Let's Party</button>
+    </form>
 
-<p class="border-bottom mb-2">Review Participant Scores</p>
-
+    <br />
+    <p class="border-bottom mb-2">Participant Score Status</p>
     <ul class="pl-0" style="list-style-type:none">
     {% for urd in user_round_details %}
       <li><a href="{% url 'movies:commit_user_round' urd.pk %}">{{ urd.user.username }}</a>
@@ -31,26 +36,20 @@
           {% if urd.finalized_by_admin %}
           <small><i>Done!</i></small>
           {% else %}
-          <small>Not Submitted</small>
+          <small>Not Finalized</small>
           {% endif %}
         </span></li>
     {% endfor %}
     </ul>
-
-    <br>
   
-    <p class="border-bottom mb-2"><b>Finalize Round Results</b></p>
+    <p class="border-bottom mb-2"><b>Round Status</b></p>
 
-    <a href="{% url 'movies:commit_game_round' game_round.pk %}">Game Round {{ game_round.round_number }}</a>
-      <span class="float-right"><small>Not Submitted</small></span>
-
-
-
-
-{% else %}
-  <p>Round {{ game_round.round_number }} has been submitted as Complete by Admin!</p>
-
-{% endif %}
+    Game Round {{ game_round.round_number }}
+    {%if game_round.round_completed%}
+      <span class="float-right"><small><i>Concluded!</i></small></span>
+    {%else%}
+      <span class="float-right"><small>Not Finalized</small></span>
+    {%endif%}
 
 
 {% endblock content %}

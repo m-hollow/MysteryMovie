@@ -32,3 +32,4 @@ Project for Mystery Movie voting and tracking.
     DB_PASSWORD=mmg_password
     ```
 - Run initial migrations: `python3 manage.py migrate --settings=mmg.settings.development`
+

@@ -207,6 +207,15 @@ class Movie(models.Model):
             return float(0.0)   # this is gaming things a bit; OverviewView sorts a queryset of movies and looks at average rating;
                         # movies with no ratings submitted will return NoneType, which can't be rounded
 
+    @property
+    def average_rating_incomplete(self):
+        # aggregate returns a dict
+        average_dict = self.usermoviedetail_set.aggregate(avg_rating=Avg('star_rating'))
+        if average_dict['avg_rating']:
+            return round(average_dict['avg_rating'], 1)
+        else:
+            return float(0.0)
+
     class Meta:
         ordering = ['date_watched']
 
@@ -453,5 +462,18 @@ class PointsEarned(models.Model):
         return self.point_string
 
 
+class PartyState(models.Model):
+    """
+    in which we keep track of the Results Party overall state.
+    """
+    idx = models.PositiveSmallIntegerField()
+    next_time = models.DateTimeField()
 
+
+class PartyGoers(models.Model):
+    """
+    in which we keep track of the Results Party-Goers individual state.
+    """
+    uid = models.PositiveSmallIntegerField()
+    last_ping = models.DateTimeField()
 

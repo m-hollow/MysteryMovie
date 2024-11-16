@@ -11,7 +11,13 @@
     {% if not current_round.round_completed %}
       <h2>Current Round -<b>&nbsp;{{ current_round.round_number }}</b></h2>
     {% else %}
-      <h2>Round {{ current_round.round_number }} is Complete! <span class="float-right"><a href="{% url 'movies:results' %}"><i><small>RESULTS HERE</small></i></a></span></h2>
+      <h2>Round {{ current_round.round_number }} is Complete! 
+        {%if the_party_is_on %}
+        <span class="float-right"><a href="{% url 'movies:resultsparty' %}"><i><small>LET'S PARTY</small></i></a></span>
+        {%else%}
+        <span class="float-right"><a href="{% url 'movies:results' %}"><i><small>RESULTS HERE</small></i></a></span>
+        {%endif%}
+      </h2>
     {% endif %}
   {% else %}
     <h2>There is no active Round.</h2>
