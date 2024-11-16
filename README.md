@@ -22,7 +22,7 @@ Project for Mystery Movie voting and tracking.
 
      mysql> CREATE DATABASE mmg_1;
      mysql> CREATE USER 'mmg_user_a'@'localhost' IDENTIFIED BY 'mmg_password';
-     mysql> GRANT CREATE, ALTER, INSERT, UPDATE, DELETE, SELECT, REFERENCES ON mmg_1.* TO 'mmg_user_a'@'localhost';
+     mysql> GRANT CREATE, ALTER, INSERT, UPDATE, DELETE, SELECT, REFERENCES, INDEX ON mmg_1.* TO 'mmg_user_a'@'localhost';
      Query OK, 0 rows affected (0.00 sec)
      ```
     - would result in the fields in the `.env` being:
