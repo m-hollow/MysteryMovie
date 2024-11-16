@@ -1,0 +1,805 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+  <title>Results Party</title>
+  <style type="text/css">
+    body
+    {
+      overflow-y: scroll; /* Show scrollbars */
+    }
+  </style>
+  <script type="text/javascript" language="javascript">
+    // Current Index
+    var current_index = {{ current_index }};
+    var kActivityThreshold = 5000; // 5 seconds before we are seen to be inactive.
+    var experiment_count = {{ experiment_count }};
+    var users = {{ users_json | safe }};
+    var all_guesses = {{ all_guesses | safe }};
+    var points_by_movie = {{ points_by_movie | safe }};
+    var guesses_by_movie = {{ guesses_by_movie | safe }};
+    var visible_details = {{ current_film_index }};
+    var winner_id = {{ winner_id }};
+    
+    var selection_index = [];
+    var scoreboard_steps_template = ['total', 'unseen', 'known', 'loathed', 'liked']
+    
+    var global_point_guess_value = 2; // guesses presently worth 2 points. ideally this would be abstracted/driven by the table above.
+    
+    var state = "{{ state }}";
+
+    function Party()
+    {
+        {% for film in films %}
+        selection_index.push({"id": {{ film.id }}, "star_rating": {{ film.star_rating }}, "stars_width": {{ film.stars_width }}, "chosen_by_id": {{ film.chosen_by_id}}});{% endfor %}
+
+        var px = 0;
+        if (current_index == 0)
+        {
+            for (var user in users)
+            {
+                $('#leaderboard-' + user).css('margin-top', px + 'px');
+                $('#leaderboard-' + user).css('display', '');
+                px += 32;
+            }
+        }
+        
+        if (current_index > 0)
+        {
+            for (var catchup_index = 1; catchup_index <= current_index; catchup_index++)
+            {
+                var selection = selection_index[catchup_index-1];
+                
+                // Update guess points (for this movie only).
+                for (var user_id in users)
+                {
+                    if (guesses_by_movie[selection.chosen_by_id].includes(Number(user_id)))
+                    {
+                        IncrementScore($('#data-guesses-' + user_id), global_point_guess_value, false);
+                        IncrementScore($('#data-total-' + user_id), global_point_guess_value, false);
+                    }
+                    else
+                    {
+                        IncrementScore($('#data-guesses-' + user_id), 0, false);
+                        IncrementScore($('#data-total-' + user_id), 0, false);
+                    }
+                }
+                
+                // Update movie reaction points.
+                for (var step in scoreboard_steps_template)
+                {
+                    IncrementScore($('#data-' + scoreboard_steps_template[step] + '-' + selection.chosen_by_id), points_by_movie[selection.chosen_by_id][scoreboard_steps_template[step]], false);
+                }
+                
+                // Update movie score.
+                IncrementScore($('#data-moviescore-' + selection.chosen_by_id), selection.star_rating, false);
+            }
+
+            UpdateScoreboard(false);
+            
+            // Display details for current index.
+            var selection = selection_index[current_index-1];
+            {%if state == "COMPLETE"%}
+            for (var sel_idx in selection_index)
+            {
+                if (selection_index[sel_idx].chosen_by_id == winner_id)
+                {
+                    selection = selection_index[sel_idx];
+                }
+            }
+            {%endif%}
+            $('#details-' + selection.id ).css('display', '');
+            $('#details-' + selection.id + '-t').css('display', '');
+            $('#details-' + selection.id + '-0').css('display', '');
+            for (var user_id in users)
+            {
+                $('#details-' + selection.id + '-' + user_id).css('display', '');
+            }
+        }
+        
+        // If the round is live kick off polling.
+        {%if state != "COMPLETE"%}
+        CheckState();
+        {%endif%}
+    }
+    
+    function UpdateScoreboard(animated = true)
+    {
+        var reorg_users = {};
+        var reorg_scores = {};
+        
+        for (var user in users)
+        {
+            var points = $('#data-total-' + user).text();
+            var moviescore = $('#data-moviescore-' + user).text();
+            reorg_users[user] = points;
+            reorg_scores[user] = moviescore;
+        }
+        
+        var keyValues = [];
+        for (var key in reorg_users)
+        {
+            keyValues.push([ key, reorg_users[key], reorg_scores[key] ])
+        }
+        
+        keyValues.sort(function compare(kv1, kv2)
+        {
+            if (kv2[1] == kv1[1])
+            {
+                return kv2[2] - kv1[2];
+            }
+            
+            return kv2[1] - kv1[1]
+        });
+        
+        var position_text_values = [ "1st", "2nd", "3rd", "4th", "5th", "6th" ];
+        var last_point_value = -1;
+        var last_score_value = -1;
+        var last_position_text_index = 0;
+        
+        var max_liked = 0;
+        var max_loathed = 0;
+        var max_guesses = 0;
+        var max_known = 0;
+        var max_unseen = 0;
+
+        for (var index in keyValues)
+        {
+            var user_id = keyValues[index][0];
+            var liked_val = Number($('#data-liked-' + user_id).text());
+            var loathed_val = Number($('#data-loathed-' + user_id).text());
+            var guesses_val = Number($('#data-guesses-' + user_id).text());
+            var known_val = Number($('#data-known-' + user_id).text());
+            var unseen_val = Number($('#data-unseen-' + user_id).text());
+            
+            if (liked_val > max_liked) max_liked = liked_val;
+            if (loathed_val > max_loathed) max_loathed = loathed_val;
+            if (guesses_val > max_guesses) max_guesses = guesses_val;
+            if (known_val > max_known) max_known = known_val;
+            if (unseen_val > max_unseen) max_unseen = unseen_val;
+        }
+        
+        for (var index in keyValues)
+        {
+            var user_id = keyValues[index][0];
+            var point_value = keyValues[index][1];
+            var score_value = keyValues[index][2];
+            if (animated)
+            {
+                $('#leaderboard-' + user_id).animate({'margin-top': (index * 32) + 'px'}, 300);
+            }
+            else
+            {
+                $('#leaderboard-' + user_id).css('margin-top', (index * 32) + 'px');
+                $('#leaderboard-' + user_id).css('display', '');
+            }
+            
+            // Stars
+            $('#leaderboard-' + user_id + '-pos-points').text('x' + point_value + ' pts');
+            if (Number(score_value) > 0)
+            {
+                $('#leaderboard-' + user_id + '-pos-moviescore').text(Number(score_value).toFixed(1));
+                if (animated)
+                {
+                    $('#leaderboard-stars-' + user_id).animate({'width': (60 * Number(score_value / 5.0))+8 }, 300);
+                }
+                else
+                {
+                    $('#leaderboard-stars-' + user_id).css('width', (60 * Number(score_value / 5.0))+8);
+                }
+            }
+            
+            // Flair
+            var unseen = Number($('#data-unseen-' + user_id).text());
+            var known = Number($('#data-known-' + user_id).text());
+            var guesses = Number($('#data-guesses-' + user_id).text());
+            var loathed = Number($('#data-loathed-' + user_id).text());
+            var liked = Number($('#data-liked-' + user_id).text());
+            
+            var flair_text = '';
+            if (state == "COMPLETE" && user_id == winner_id) flair_text += ' &#128081; ';
+            if (liked >= max_liked && liked > 0) flair_text += " &#129505; ";
+            if (loathed >= max_loathed && loathed > 0) flair_text += " &#128529; ";
+            if (guesses >= max_guesses && guesses > 0) flair_text += " &#129300; ";
+            if (known >= max_known && known > 0) flair_text += " &#128161; ";
+            if (unseen >= max_unseen && unseen > 0) flair_text += " &#127381; ";
+            
+            $('#leaderboard-' + user_id + '-pos-flair').html(flair_text);
+            
+            if ((last_point_value > -1 && point_value != last_point_value) || (last_score_value> -1 && last_score_value != score_value))
+            {
+                last_position_text_index++;
+            }
+            position_text = position_text_values[last_position_text_index];
+            
+            $('#leaderboard-' + user_id + '-pos').text(position_text);
+            
+            last_point_value = point_value;
+            last_score_value = score_value;
+        }
+        
+    }
+    
+    function ToggleExperiment(movie_id)
+    {
+        if (state == "COMPLETE")
+        {
+            {%for film in films%}
+            if ($('#details-{{ film.id }}').is(':visible'))
+            {
+                if ({{ film.id }} != movie_id)
+                {
+                    $('#details-{{ film.id }}').css('display', 'none');
+                    $('#exhi-{{ film.id }}').css('border-color', 'transparent');
+                }
+            }
+            else
+            {
+                if ({{ film.id }} == movie_id)
+                {
+                    $('#details-{{ film.id }}').css('display', '');
+                    $('#exhi-{{ film.id }}').css('border-color', '#fff');
+                    $('#details-{{ film.id }}-t').fadeIn(0);
+                    $('#details-{{ film.id }}-0').fadeIn(0);
+{% for user in users %}
+                    $('#details-{{ film.id }}-{{ user.user_id }}').fadeIn(0);
+{% endfor %}
+                }
+            }
+            {%endfor%}
+        }
+    }
+    
+    function CheckState()
+    {
+        jQuery.get("/resultspartystate.json", {}, function(data) { 
+            var server_time = Date.parse(data.server_time);
+            var next_time = Date.parse(data.next_time);
+            var delta = next_time - server_time;
+            
+            for (var user_index in data.users)
+            {
+                var last_ping = Date.parse(data.users[user_index].last_ping)
+                var ping_delta = server_time - last_ping;
+
+                // Show active users as active (active within 10 seconds).
+                if (ping_delta < kActivityThreshold)
+                {
+                    $('#av-'+data.users[user_index].uid).css("filter", "");
+                    $('#av-'+data.users[user_index].uid).css("opacity", "");
+                }
+                else
+                {
+                    $('#av-'+data.users[user_index].uid).css("filter", "grayscale(1)");
+                    $('#av-'+data.users[user_index].uid).css("opacity", "0.3");
+                    $('#star-rating-' + data.users[user_index].uid).css('pointer-events', '');
+                }
+            }
+            
+            // Update debug status
+            $('#db-local-index').text(current_index);
+            $('#db-server-index').text(data.idx);
+            $('#db-server-time').text(data.server_time);
+            $('#db-server-delta').text(delta);
+            $('#db-next-time').text(data.next_time);
+            
+            // If we are still waiting for the index to move...
+            if (data.idx < current_index)
+            {
+                window.location.reload();
+                return;
+            }
+            else if (data.idx == current_index || LockStep)
+            {
+                // Check back in 2 seconds.
+                setTimeout(CheckState, 2000);
+            }
+            else
+            {
+                // Otherwise, set a timer for the differential between the
+                // server time and the next time, at which point we'll
+                // trigger the transition to the next state.
+                
+                if (data.idx > current_index+1)
+                {
+                    // Only step one at a time, regardless of what the server is at.
+                    current_index = current_index + 1;
+                    LocalSetState();
+                }
+                else
+                {
+                    current_index = data.idx;
+                    
+                    if (delta > 0)
+                    {
+                        setTimeout(LocalSetState, delta);
+                    }
+                    else
+                    {
+                        LocalSetState();
+                    }
+                }
+            }
+        });
+    }
+    
+    function ResetState()
+    {
+{% if user.userprofile.is_mmg_admin %}
+      if (current_index > 0)
+      {
+        $('#admin-reset').attr('disabled','disabled');
+        $('#admin-advance').attr('disabled','disabled');
+        $('#admin-busy').css('display', 'block');
+
+        jQuery.get("/resultspartyincrement/0", {}, function(data) {
+            console.log("Reset State to 0");
+        });
+      }
+{% endif %}
+    }
+    
+    function RemoteIncrementState()
+    {
+{% if user.userprofile.is_mmg_admin %}
+        $('#admin-reset').attr('disabled','disabled');
+        $('#admin-advance').attr('disabled','disabled');
+        $('#admin-busy').css('display', 'block');
+
+        var next_index = current_index + 1;
+        jQuery.get("/resultspartyincrement/" + next_index, {}, function(data) {
+            console.log("Submitted increment to " + next_index);
+        });
+{% endif %}
+    }
+    
+    // A Lock in case we have background tabs or network issues that cause
+    // overlapping updates to be attempted.
+    var LockStep = false;
+    
+    function LocalSetState()
+    {
+        StepToState(current_index);
+        
+        // Check back in 2 seconds.
+        setTimeout(CheckState, 2000);
+    }
+    
+    function StepToState(idx)
+    {
+        if (idx < current_index)
+        {
+            console.log("Attempting to reload...");
+            window.location.reload();
+            return;
+        }
+        
+        // If the current state is beyond the number of films we had, we're done. Mark it as such.
+        if (idx > experiment_count)
+        {
+            if (state != "COMPLETE")
+            {
+              // Get winning moving and highlight the user/toggle its details.
+              var pick = 0;
+              for (var sel_idx in selection_index)
+              {
+                  if (selection_index[sel_idx]['chosen_by_id'] == winner_id)
+                  {
+                      pick = selection_index[sel_idx]['id'];
+                  }
+              }
+              
+              $('#header').animate({'font-size': '0rem'}, 250, 'easeInOutSine');
+              $('#header').promise().done(function() {
+              $('#header-postscript').text(" - " + users[winner_id] + " Wins!");
+              $('#picker-' + pick).animate({'width': '100px', 'height': '100px', 'right': '-25px', 'border-width': '3px', 'border-color': '#fb0'}, 650);
+              $('#picker-' + pick).promise().done(function() {
+                  $('#excrown-' + pick).fadeIn(650);
+                  var final_flair = $('#leaderboard-' + winner_id + '-pos-flair').html();
+                  $('#leaderboard-' + winner_id + '-pos-flair').html('&#128081;' + final_flair);
+              });
+              $('#header').animate({'font-size': '2.5rem'}, 350, 'easeInOutSine');
+              $('#header').promise().done(function() {
+                  $('#header').animate({'font-size': '2rem'}, 300, 'easeInOutSine');
+                  ToggleExperiment(pick);
+              });
+              });
+              for (var i = 1; i <= experiment_count; i++)
+              {
+                  $('#ex-' + i).css('cursor', 'pointer');
+              }
+            }
+{% if user.userprofile.is_mmg_admin %}
+            // Unlock Admin UI
+            UnlockAdminUI();
+{% endif %}
+            state = "COMPLETE";
+            $('#state').text(state);
+        }
+        else if (idx > 0)
+        {
+            state = "IN PROGRESS";
+            $('#state').text(state);
+        }
+        
+        
+        current_index = idx;
+        $('#db-local-index').text(idx);
+        
+        var timeToReveal = 1000;
+        
+        // Show the current film as highlighted and kick off the reveal.
+        for (var film_index = 1; film_index <= experiment_count; film_index++)
+        {
+            if (idx == film_index)
+            {
+                $('#ex-'+film_index).css("filter", "");
+                $('#ex-'+film_index).animate({"opacity": "1.0"}, 500);
+                if (selection_index[idx-1].id)
+                {
+                    $('#exhi-'+selection_index[idx-1].id).animate({"border-color": "#fff"}, 500);
+                }
+                
+                var picker = $('#picker-' + selection_index[film_index-1].id);
+                var selection = idx;
+                
+                if (Number(visible_details) > 0)
+                {
+                    $('#details-' + visible_details).fadeOut(600);
+                    $('#exhi-'+visible_details).animate({"border-color": "transparent"}, 500);
+                }
+
+                setTimeout(function()
+                {
+                    RevealFilm(picker, selection_index[idx-1].id, selection_index[idx-1].star_rating, selection_index[idx-1].stars_width, selection_index[idx-1].chosen_by_id);
+                }.bind(picker, selection_index, idx), timeToReveal);
+            }
+            else
+            {
+                //$('#ex-'+film_index).css("filter", "grayscale(1)");
+                //$('#ex-'+film_index).css("opacity", "0.3");
+            }
+        }
+    }
+    
+    function IncrementScore(obj, points, timed = true)
+    {
+        var currentValue = obj.text();
+        if (currentValue == '-' || currentValue == '') currentValue = 0;
+        else currentValue = Number(currentValue);
+        obj.text(currentValue + Number(points));
+        if (timed)
+        {
+            if (points > 0)
+                obj.css('background-color', '#0b0');
+            else
+                obj.css('background-color', '#bbb');
+        }
+        if (obj.attr('id').indexOf("total") > 0)
+        {
+            obj.css('font-weight', 'bold');
+        }
+        if (timed)
+        {
+            obj.animate({'background-color': '#333'}, 500);
+        }
+    }
+    
+    function RevealFilm(obj, id, star_rating, stars_width, chosen_by_id)
+    {
+        if (LockStep)
+        {
+            return;
+        }
+        
+        // Lock on reveal, unlock only after it has finished.
+        LockStep = true;
+
+        // var scoreboard_steps = ['total', 'unseen', 'known', 'loathed', 'liked'];
+        var scoreboard_steps = scoreboard_steps_template.slice();
+        
+        $('#stars-' + id).animate({ 'background-color': '#fb0', 'width': stars_width + 'px' }, 2000);
+        obj.animate({height: 150, width: 150, right: 0}, 500, 'easeInOutSine');
+        obj.animate({height: 150, width: 150, right: 0}, 15, 'linear');
+        obj.animate({height: 150, width: 2}, 1500, 'easeInOutSine');
+        obj.promise().done(function() { 
+            obj.attr('src', '/static/img/user/' + chosen_by_id + '.webp');
+            obj.attr('alt', users[chosen_by_id]);
+            obj.attr('title', users[chosen_by_id]);
+            obj.animate({height: 150, width: 2}, 500, 'easeInOutSine');
+            obj.animate({height: 150, width: 150}, 200, 'easeInOutSine');
+            obj.animate({height: 150, width: 150}, 1000, 'linear');
+            obj.animate({height: 50, width: 50, right: -50}, 500, 'easeInOutSine');
+            obj.promise().done(function() {
+                visible_details = id;
+                $('#star-rating-' + id).css('pointer-events', '');
+                $('#details-' + id).slideDown(100);
+                
+                var rowIncrement = 300;
+                obj.promise().done(function() {
+                $('#details-' + id + '-t').fadeIn(rowIncrement);
+                $('#details-' + id + '-0').fadeIn(rowIncrement);
+                $('#details-' + id + '-0').promise().done(function() {
+{% for user in users %}
+                $('#details-' + id + '-{{ user.user_id }}').fadeIn(rowIncrement);
+                $('#details-' + id + '-{{ user.user_id }}').promise().done(function() {
+                
+                if (guesses_by_movie[chosen_by_id].includes({{ user.user_id }}))
+                {
+                    IncrementScore($('#data-guesses-{{ user.user_id }}'), global_point_guess_value);
+                    IncrementScore($('#data-total-{{ user.user_id }}'), global_point_guess_value);
+                }
+                else
+                {
+                    IncrementScore($('#data-guesses-{{ user.user_id }}'), 0);
+                    IncrementScore($('#data-total-{{ user.user_id }}'), 0);
+                }
+
+                var step = scoreboard_steps.pop();
+                if (step)
+                {
+                    IncrementScore($('#data-' + step + '-' + chosen_by_id), points_by_movie[chosen_by_id][step]);
+                    // $('#data-' + step + '-' + chosen_by_id).text(points_by_movie[chosen_by_id][step]);
+                }
+{% endfor %}
+                
+                obj.promise().done(function() {
+                    // $('#data-moviescore-' + chosen_by_id).text(star_rating);
+                    IncrementScore($('#data-moviescore-' + chosen_by_id), star_rating);
+
+                    // Update scoreboard positions
+                    UpdateScoreboard();
+                    
+                    // Unlock
+                    LockStep = false;
+                    
+{% if user.userprofile.is_mmg_admin %}
+                    // Unlock Admin UI
+                    UnlockAdminUI();
+{% endif %}
+                });
+                });
+                
+                });
+
+{% for user in users %}
+                });
+{% endfor %}
+            });
+        }); 
+    }
+    
+    function UnlockAdminUI()
+    {
+        $('#admin-reset').attr('disabled', false);
+        $('#admin-advance').attr('disabled', false);
+        $('#admin-busy').css('display', 'none');
+    }
+    
+  </script>
+{% endblock title %}
+
+
+{% block page_header %}
+  <h2 id="header" align="center" style="margin: auto; line-height: 40px; vertical-align: middle; height: 40px; border: 0px solid purple">
+    <div style="border: 0px solid green; float: left; width: 66px; height: 40px"> <span style="display: {%if not state%}inline{%elif state != "COMPLETE"%}none{%else%}inline{%endif%};">
+      {%if current_round.round_number != 1 %}<a href="/resultsparty/1" class="partynavleft" alt="To Round 1" title="To Round 1">&#9194;</a>{%endif%}
+      {%if prev_round %}<a href="/resultsparty/{{ prev_round }}" class="partynavleft" alt="To Round {{ prev_round }}" title="To Round {{ prev_round }}">&#9664;&#65039;</a>{%endif%}
+    </span></div>
+    RESULTS PARTY - ROUND {{ current_round.round_number }}<span id="header-postscript" style="font-weight: bold; text-transform: uppercase">{%if state == "COMPLETE" and winner_name %} - {{ winner_name }} Won{%endif%}</span>
+    <div style="border: 0px solid green; float: right; width: 66px; height: 40px"><span style="display: {%if state != "COMPLETE"%}none{%else%}inline{%endif%};">
+      {%if next_round %}<a href="/resultsparty/{{ last_round }}" alt="To Round {{ last_round }}" title="To Round {{ last_round }}" class="partynavright">&#9193;</a>{%endif%}
+      {%if last_round %}<a href="/resultsparty/{{ next_round }}" alt="To Round {{ next_round }}" title="To Round {{ next_round }}" class="partynavright">&#9654;&#65039;</a>{%endif%}
+    </span>
+    </div>
+  </h2>
+{% endblock page_header %}
+
+
+{% block content %}
+
+<div style="border: 0px solid black; width:72em; text-align: left; margin-top: -12px ">
+
+{%if error %}
+  <div style="border: 0px solid red; width: 100%; text-align: center;">
+  <strong>{{ error }}</strong>
+  
+  <br /><br />
+
+{% if ready_to_conclude %}
+  <div style="width: 200px; border: 0px solid black; margin: auto">
+    {% if user.userprofile.is_mmg_admin %}
+    <p>Admin: <span class="float-right"><a href="{% url 'movies:conclude_round' current_round.pk %}"><b>Conclude Round</b></a></span></p>
+    {% endif %}
+  </div>
+{%endif%}
+  
+  </div>
+  
+{%endif%}
+
+<div style="border: 0px solid green; float: left; margin-left: 24px{%if error %}; display: none{%endif%}">
+<table id="subjects">
+<tr>
+  <td></td>
+  {% for user in users %}
+  <td><div style="border: 1px solid black; display: inline-block;"><img id="av-{{ user.user_id }}" src="/static/img/user/{{ user.user_id }}.webp" alt="{{ user.username }}" title="{{ user.username }}" width="45" style="{% if state != "COMPLETE" %}filter: grayscale(1); opacity: 0.3{%endif%}" /></div>
+  {% endfor %}
+</tr>
+<tr>
+  <td>&#129505; Liked</td>
+  {% for user in users %}
+  <td id="data-liked-{{ user.user_id }}" class="data">-</td>
+  {% endfor %}
+</tr>
+<tr>
+  <td>&#128529; Loathed</td>
+  {% for user in users %}
+  <td id="data-loathed-{{ user.user_id }}" class="data">-</td>
+  {% endfor %}
+</tr>
+<tr>
+  <td>&#129300; Guesses</td>
+  {% for user in users %}
+  <td id="data-guesses-{{ user.user_id }}" class="data">-</td>
+  {% endfor %}
+</tr>
+<tr>
+  <td>&#128161; Known</td>
+  {% for user in users %}
+  <td id="data-known-{{ user.user_id }}" class="data">-</td>
+  {% endfor %}
+</tr>
+<tr>
+  <td>&#127381; Unseen</td>
+  {% for user in users %}
+  <td id="data-unseen-{{ user.user_id }}" class="data">-</td>
+  {% endfor %}
+</tr>
+<tr>
+  <td><strong>Total Points</strong></td>
+  {% for user in users %}
+  <td id="data-total-{{ user.user_id }}" class="data">-</td>
+  {% endfor %}
+</tr>
+<tr>
+  <td><strong>Movie Score</strong></td>
+  {% for user in users %}
+  <td id="data-moviescore-{{ user.user_id }}" class="data">-</td>
+  {% endfor %}
+</tr>
+</table>
+</div>
+
+<div style="float: left; border: 0px solid red; padding-top: 0px; text-align: center; margin-left: 10px; font-size: 9pt; width: 240px; font-style: italic; color: #fff;{%if current_index == film.idx and state != "COMPLETE" %}display: none{%endif%}">
+  <span id="state">{{ state }}</span><br />
+  &#128197; {{round_start}} &mdash; {{round_end }}
+  <br />
+  <br />
+{%if state != "COMPLETE"%}
+  <div style="float: left; width: 100%; padding: 12px; margin: auto; text-align: center; border: 1px solid #555; display: {% if not user.userprofile.is_mmg_admin %}none{%endif%}{%if error %}none{%endif%}">
+  {% if user.userprofile.is_mmg_admin %}
+  <form>
+    <div style="float: right; margin-right: 16px; margin-top: 0px; width: 24px; height: 24px">
+      <img id="admin-busy" width="24" src="/static/img/spinner.gif" alt="..." style="display: none" />
+    </div>
+    <input id="admin-reset" type="button" onclick="ResetState()" value="Reset" /> 
+    <input id="admin-advance" type="button" onclick="RemoteIncrementState()" value="Advance &gt;" /><br />
+  </form><br />
+{% endif %}
+
+<table id="debug" style="display: {% if user.userprofile.is_mmg_admin %}block{%else%}none{%endif%}; color: #999">
+  <tr><td>Local Index</td><td id="db-local-index"></td></tr>
+  <tr><td>Server Index</td><td id="db-server-index"></td></tr>
+  <tr><td>Server Time</td><td id="db-server-time"></td></tr>
+  <tr><td>Next Time</td><td id="db-next-time"></td></tr>
+  <tr><td>Server Delta</td><td id="db-server-delta"></td></tr>
+</table>
+
+</div>
+{%endif%}
+
+</div>
+
+<div style="border: 0px solid blue; float: right; margin-right: 40px; height: 200px; width: 450px">
+  {% for user in users %}
+  <div id="leaderboard-{{ user.user_id }}" class="leaderboard" style="display: none">
+    <div id="leaderboard-{{ user.user_id }}-pos" class="leaderboard-pos">1st</div>
+    <div class="leaderboard-pos-player"> <img src="/static/img/user/{{ user.user_id }}.webp" style="border: 1px solid black" width="28" height="28" alt="{{ user.username }}" title="{{ user.username }}" /> {{ user.username }}</div>
+    <div id="leaderboard-{{ user.user_id }}-pos-points" class="leaderboard-pos-points"> x0 pts</div>
+    <div id="leaderboard-{{ user.user_id }}-pos-moviescore" class="leaderboard-pos-moviescore"> - </div>
+    <div class="leaderboard-pos-stars">
+      <div id="leaderboard-stars-{{ user.user_id }}" style="width: 0px; height: 15px; background-color: #fb0;">
+        <img id="leaderboard-star-rating-{{ user.user_id }}" style="pointer-events: none; vertical-align: top" src="/static/img/stars.gif" alt="" title="" height="15" width="75" />
+      </div>
+    </div>
+    <div id="leaderboard-{{ user.user_id }}-pos-flair" class="leaderboard-pos-flair"> &nbsp; </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div style="clear: both"></div>
+
+<div style="border: 0px solid red; width: 100%; text-align: center; margin: none;">
+
+<table style="margin-left: 24px; margin-bottom: 12em; border: 0px solid green; ">
+<tr>
+<td colspan="6"><table><tr>
+{% for film in films %}
+<td>
+  <div id="exhi-{{ film.id }}" style="border: 3px solid {%if current_index == film.idx and state != "COMPLETE" %}#fff{%elif film.id == winner_film_id and state == "COMPLETE" %}#fff{%else%}transparent{%endif%}; padding: 0; margin: 0">
+  <div onclick="ToggleExperiment({{ film.id }})" id="ex-{{ film.idx }}" style="{%if state == 'COMPLETE' %}cursor: pointer; {%endif%}border: 1px solid black; width: 10.7em; height: 16em; margin: 0em; background-image: url('/static/img/movie/{{ film.id }}.jpg'); background-size: contain; background-repeat: no-repeat; {% if current_index < film.idx %}filter: grayscale(1); opacity: 0.3;{%endif%}">
+      <div id="excrown-{{ film.id }}" style="position: absolute; margin-left: 90px; margin-top: -35px; font-size: 40px; display: {%if film.id == winner_film_id and state == "COMPLETE" %}block{%else%}none{%endif%}"><img src="/static/img/crown.png" width="40" alt="&#128081;" title="&#128081;" /></div>
+      <div title="{{ film.name }} ({{ film.year }})" style="display: table-cell; vertical-align: bottom; height: 256px; text-align: center; width: 10.7em; margin-bottom: 0">
+      </div>
+      <img alt="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" title="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" id="picker-{{ film.id }}" src="/static/img/{% if current_index < film.idx %}the-question.png{%else%}user/{{film.chosen_by_id}}.webp{%endif%}" 
+           style="position: relative; {%if film.id == winner_film_id and state == "COMPLETE" %}right: -25px;{%else%}right: -50px;{%endif%} top: -256px; border: {%if film.id == winner_film_id and state == "COMPLETE" %}3px solid #fb0{%else%}1px solid black{%endif%}; width: {%if film.id == winner_film_id and state == "COMPLETE" %}100px;{%else%}50px;{%endif%} margin-top: 10px;" xonclick="RevealFilm($('#picker-{{ film.id }}'), {{ film.id }}, {{ film.stars_width }}, {{ film.chosen_by_id }})" />
+  </div>
+  </div>
+  <div id="stars-{{ film.id }}" style="width: {%if current_index < film.idx %}0px;{%else%}{{ film.stars_width }}px; background-color: #fb0{%endif%}; height: 30px">
+    <img id="star-rating-{{ film.id }}" style="{%if current_index < film.idx %}pointer-events: none{%endif%}" src="/static/img/stars.gif" alt="{{ film.star_rating }} star{%if film.star_rating != 1%}s{%endif%}" title="{{ film.star_rating }} star{%if film.star_rating != 1%}s{%endif%}" width="150px" />
+  </div>
+</td>
+{% endfor %}
+</tr></table></td>
+</tr>
+<tr>
+<td colspan="6">
+      {% for movie_id, guesses in all_guesses.items %}
+      <div id="details-{{ movie_id }}" style="border: 0px solid green; text-align: left; width: 100%; margin-top: 0px; display: none">
+      <table class="details" style="width: 100%">
+        <tr id="details-{{ movie_id }}-t" style="display: none; border: 0; padding: 0; margin: 0">
+          <td colspan="7" style="border: 0; padding: 0; margin: 0"><h5 style="width: 100%; text-align: center;margin: 0; padding: 0">{%for film in films%}{%if film.id == movie_id%}{{ film.name }} ({{ film.year }}){%endif%}{%endfor%}</h5></td>
+        </tr>
+        <tr id="details-{{ movie_id }}-0" style="display: none" class="detail-header">
+          <td width="110">Player</td>
+          <td width="134" colspan="2">Guess</td>
+          <td width="84">Rating</td>
+          <td width="60">Reaction</td>
+          <td width="50">Known</td>
+          <td width="660">Comment</td>
+        </tr>
+          {% for guess in guesses %}
+            <tr id="details-{{ movie_id }}-{{ guess.user_id }}" style="display: none" >
+            {% if guess.user_guess_id %}
+              <td style="text-align: left"><img src="/static/img/user/{{ guess.user_id }}.webp" width="24" /> {{ guess.username }} </td>
+              <td> {%if guess.was_right %} &#10145;&#65039; {%else%} &#10060; {%endif%} </td>
+              <td> <img src="/static/img/user/{{ guess.user_guess_id }}.webp" width="24" /> {{ guess.guessed_username }} </td>
+            {% else %}
+              <td style="text-align: left"><img src="/static/img/user/{{ guess.user_id }}.webp" width="24" /> {{ guess.username }} </td>
+              <td style="text-align: center">-</td>
+              <td style="text-align: center">-</td>
+            {% endif %}
+              <td >
+                <div style="width: {{ guess.star_width }}px; background-color: #fb0; height: 15px;"><img style="vertical-align: top" id="star-rating-{{ current_film_index }}-{{ guess.user_id }}" src="/static/img/stars.gif" alt="{{ guess.star_rating }} star{%if guess.star_rating != 1%}s{%endif%}" title="{{ guess.star_rating }} star{%if guess.star_rating != 1%}s{%endif%}" width="75px" height="15" /></div>
+              </td>
+              <td style="text-align: center">
+                {% if guess.star_rating > 3 %}
+                  &#129505; 
+                {% elif guess.star_rating == 1 %}
+                  &#128529;
+                {% endif %}
+              </td>
+              <td>
+                <div style="text-align: left; margin-left: 8px">
+                {% if not guess.previously_seen %}
+                  &#127381; 
+                {% endif %}
+                {% if guess.heard_of %}
+                  &#128161; 
+                {% endif %}
+                </div>
+              </td>
+              <td>
+                "{{ guess.comments }}"
+              </td>
+            </tr>
+          {% endfor %}
+      </table>
+      </div>
+      {% endfor %}
+</td></tr></table>
+
+</div>
+
+{% endblock content %}
