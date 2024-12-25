@@ -34,7 +34,11 @@
 
 <ul class="pl-0" style="list-style-type:none">
   {% for round in game_rounds %}
-    <li>Round {{ round.round_number }}<a href="{% url 'movies:edit_round' round.pk %}"><span class="float-right"><b>Edit</b></span></a></li>
+    <li>
+      Round {{ round.round_number }}
+      <span class="float-right"><a href="{% url 'movies:edit_round_images' round.pk %}"><strong>Edit Images</strong></a></span>
+      <span class="float-right"><a href="{% url 'movies:edit_round' round.pk %}"><strong>Edit Details</strong></a> &nbsp;| &nbsp;</span>
+    </li>
   {% empty %}
     <p>There are no existing Rounds to edit.</p>
   {% endfor %}

@@ -728,7 +728,7 @@
 {% for film in films %}
 <td>
   <div id="exhi-{{ film.id }}" style="border: 3px solid {%if current_index == film.idx and state != "COMPLETE" %}#fff{%elif film.id == winner_film_id and state == "COMPLETE" %}#fff{%else%}transparent{%endif%}; padding: 0; margin: 0">
-  <div onclick="ToggleExperiment({{ film.id }})" id="ex-{{ film.idx }}" style="{%if state == 'COMPLETE' %}cursor: pointer; {%endif%}border: 1px solid black; width: 10.7em; height: 16em; margin: 0em; background-image: url('/static/img/movie/{{ film.id }}.jpg'); background-size: contain; background-repeat: no-repeat; {% if current_index < film.idx %}filter: grayscale(1); opacity: 0.3;{%endif%}">
+  <div onclick="ToggleExperiment({{ film.id }})" id="ex-{{ film.idx }}" style="{%if state == 'COMPLETE' %}cursor: pointer; {%endif%}border: 1px solid black; width: 10.7em; height: 16em; margin: 0em; background-image: url('{{ film.media_path }}{{ film.id }}.jpg'); background-size: contain; background-repeat: no-repeat; {% if current_index < film.idx %}filter: grayscale(1); opacity: 0.3;{%endif%}">
       <div id="excrown-{{ film.id }}" style="position: absolute; margin-left: 90px; margin-top: -35px; font-size: 40px; display: {%if film.id == winner_film_id and state == "COMPLETE" %}block{%else%}none{%endif%}"><img src="/static/img/crown.png" width="40" alt="&#128081;" title="&#128081;" /></div>
       <div title="{{ film.name }} ({{ film.year }})" style="display: table-cell; vertical-align: bottom; height: 256px; text-align: center; width: 10.7em; margin-bottom: 0">
       </div>
