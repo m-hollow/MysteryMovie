@@ -1,10 +1,12 @@
-from django.urls import path
+from django.urls import path, re_path
 from django.views.generic.base import RedirectView
+from django.views.static import serve
+from django.conf import settings
 
 from .views import (IndexPageView, MovieDetail, OldMovieDetail, MembersView, AddMovieView,
     process_details, update_details, UpdateDetailsView, TrophiesView, ResultsView, OldRoundView, 
     ConcludeRoundView, CommitUserRoundView, CommitGameRoundView, CreateRoundView, EditRoundView, 
-    SettingsView, UserResultsView, update_points, UserProfileView, OverviewView, 
+    EditRoundImagesView, SettingsView, UserResultsView, update_points, UserProfileView, OverviewView, 
     ResultsPartyView, ResultsPartyStateView, ResultsPartyStateIncrement)
 
 app_name = 'movies'
@@ -30,6 +32,7 @@ urlpatterns = [
     path('trophies/', TrophiesView.as_view(), name='trophies'),
     path('create_round/',CreateRoundView.as_view(), name='create_round'),
     path('edit_round/<int:pk>/', EditRoundView.as_view(), name='edit_round'),
+    path('edit_round_images/<int:pk>/', EditRoundImagesView.as_view(), name='edit_round_images'),
     path('conclude_round/<int:pk>/', ConcludeRoundView.as_view(), name='conclude_round'),
     path('commit_user_round/<int:pk>/', CommitUserRoundView.as_view(), name='commit_user_round'),
     path('commit_game_round/<int:pk>/', CommitGameRoundView.as_view(), name='commit_game_round'),
@@ -43,5 +46,8 @@ urlpatterns = [
     path('settings/update_points/', update_points, name='update_points'),
     path('user_results/<int:pk>/', UserResultsView.as_view(), name='user_results'),
     path('user_profile/<int:pk>/', UserProfileView.as_view(), name='user_profile'),
+
+    re_path(r'^media/(?P<path>.*)$', serve,{'document_root': settings.MEDIA_ROOT}), 
+
 ]
 

@@ -9,10 +9,13 @@ from django.utils import timezone
 from django.http import Http404, JsonResponse
 from django.db.models import F, Max, Min, Avg, Count, Q
 from datetime import date, datetime, timedelta
+from django.conf import settings
 
 from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank, PointsEarned, PartyState, PartyGoers)
 from .forms import AddMovieForm, UserMovieDetailForm
 
+import os
+import re
 import json
 import traceback
 
@@ -407,7 +410,14 @@ class ResultsPartyView(LoginRequiredMixin, TemplateView):
         for round_film in round_films:
             print("chosen_by_id: " + str(round_film.chosen_by_id))
             
-            films.append({'idx': idx, 'id': round_film.id, 'name': round_film.name, 'year': round_film.year, 'chosen_by_id': round_film.chosen_by_id, 'chosen_by_name': users_index[round_film.chosen_by_id], 'star_rating': user_ratings[round_film.chosen_by_id], 'stars_width': int(16 + (120 * (user_ratings[round_film.chosen_by_id] / 5))) })
+            film_data = {'idx': idx, 'id': round_film.id, 'name': round_film.name, 'year': round_film.year, 'chosen_by_id': round_film.chosen_by_id, 'chosen_by_name': users_index[round_film.chosen_by_id], 'star_rating': user_ratings[round_film.chosen_by_id], 'stars_width': int(16 + (120 * (user_ratings[round_film.chosen_by_id] / 5))) }
+
+            # (Fallback path to static movies)
+            film_data['media_path'] = '/static/img/movie/'
+            if os.path.isfile(os.path.join(settings.MEDIA_ROOT, "movie", "{0}.jpg".format(round_film.id))):
+                film_data['media_path'] = '/media/movie/'
+
+            films.append(film_data)
             idx += 1
 
             # Set the winner film index
@@ -1886,6 +1896,73 @@ class EditRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def test_func(self):
         user = self.request.user
         return user.userprofile.is_mmg_admin   # returns True if userprofile object has is_mmg_admin True
+
+
+class EditRoundImagesView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = GameRound
+    template_name = 'movies/edit_round_images.html'
+    success_url = '/edit_round_images/30/'
+    context_object_name = 'game_round'
+    fields = []
+
+    login_url = 'login'
+    # used by UserPassesTestMixin; verify user has admin prvileges (required to edit a round)
+    def test_func(self):
+        user = self.request.user
+        return user.userprofile.is_mmg_admin   # returns True if userprofile object has is_mmg_admin True
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        last_round = GameRound.objects.filter(active_round=True).last()
+        
+        current_round = GameRound.objects.filter(round_number=context['object'].round_number).last()
+        
+        if current_round.round_number > 1:
+            context['prev_round'] = int(current_round.round_number) - 1
+        if current_round.round_number < last_round.round_number:
+            context['next_round'] = current_round.round_number + 1
+        if current_round.round_number != last_round.round_number:
+            context['last_round'] = last_round.round_number
+
+        # a round object exists that has active_round = True
+        current_round_movies = []
+        if current_round:
+            current_round_movies = current_round.movies_from_round.order_by('date_watched')
+        
+        for round_movie in current_round_movies:
+            if len(round_movie.name) > 18:
+                round_movie.name = round_movie.name[0:15] + '...'
+
+            # (Fallback path to static movies)
+            round_movie.media_path = '/static/img/movie/'
+            if os.path.isfile(os.path.join(settings.MEDIA_ROOT, "movie", "{0}.jpg".format(round_movie.id))):
+                round_movie.media_path = '/media/movie/'
+        
+        context['current_round_movies'] = current_round_movies
+
+        return context
+
+    def form_valid(self, form):
+        for uploaded_file in self.request.FILES.keys():
+            get_id = re.match(r'img_(\d+)', uploaded_file)
+            if get_id:
+                [id] = get_id.groups(0)
+                if not os.path.isdir(settings.MEDIA_ROOT):
+                    os.makedirs(settings.MEDIA_ROOT)
+                movie_img_path = os.path.join(settings.MEDIA_ROOT, "movie")
+                if not os.path.isdir(movie_img_path):
+                    os.makedirs(movie_img_path)
+                outfile = os.path.join(movie_img_path, id + ".jpg")
+                file = open(outfile, "wb")
+                print("Writing out {0}".format(outfile))
+                for chunk in self.request.FILES[uploaded_file].chunks():
+                    file.write(chunk)
+                file.close()
+        
+        self.success_url = '/edit_round_images/' + form.data['round_number'] + '/'
+
+        return super().form_valid(form) # newly created round is saved
 
 
 class TrophiesView(LoginRequiredMixin, ListView):

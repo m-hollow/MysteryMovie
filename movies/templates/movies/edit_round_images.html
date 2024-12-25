@@ -1,0 +1,48 @@
+{% extends 'movies/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}
+<title>Edit Round Images</title>
+{% endblock title %}
+
+{% block page_header %}
+  <h2>Edit Round Images</h2>
+{% endblock page_header %}
+
+
+{% block content %}
+
+<!-- action, left empty "", will use call (with method Post) the same view that rendered this page, e.g. EditRoundView -->
+  <form method="post" action="" class="form" enctype="multipart/form-data">
+  {% csrf_token %}
+  {% bootstrap_form form %}
+  
+  <input type="hidden" name="round_number" value="{{ object.round_number }}" />
+  
+  {% for round_movie in current_round_movies %}
+  <div style="float: left; border: 3px solid transparent; width: 11em">
+    {{ round_movie.name }}<br />
+    <div style="border: 1px solid white; width: 10.7em; height: 256px; margin-right: 15px; background: url({{ round_movie.media_path }}{{ round_movie.id }}.jpg); background-size: contain">
+    </div>
+    <input type="file" name="img_{{ round_movie.id }}" />
+  </div>
+  {% endfor %}
+  <div style="clear: both"></div>
+  
+  {% buttons %}
+    <br />
+
+    {%if object.round_number != 1 %}<a href="/edit_round_images/1" class="partynavleft" alt="To Round 1" title="To Round 1">&#9194;</a>{%endif%}
+    {%if prev_round %}<a href="/edit_round_images/{{ prev_round }}" class="partynavleft" alt="To Round {{ prev_round }}" title="To Round {{ prev_round }}">&#9664;&#65039;</a>{%endif%}
+
+    {%if last_round %}<a href="/edit_round_images/{{ last_round }}" alt="To Round {{ last_round }}" title="To Round {{ last_round }}" class="partynavright">&#9193;</a>{%endif%}
+    {%if next_round %}<a href="/edit_round_images/{{ next_round }}" alt="To Round {{ next_round }}" title="To Round {{ next_round }}" class="partynavright">&#9654;&#65039;</a>{%endif%}
+
+    <div style="text-align: center"><button class="btn btn-secondary" type="submit">Submit and Upload</button></div>
+
+  {% endbuttons %}
+  </form>
+
+  <a href="{% url 'movies:settings' %}"><b><span class="float-right">Go Back</b></span></a></p>
+
+{% endblock content %}
