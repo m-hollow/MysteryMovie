@@ -12,6 +12,12 @@
 
 {% block content %}
 
+{% if fatal_error %}
+
+  <strong>Fatal Error:</strong> {{ fatal_error|safe }}
+
+{% else %}
+
 <p class="mb-2"><b>Admin Instructions:</b></p>
 <p>
 <ul>
@@ -51,6 +57,7 @@
       <span class="float-right"><small>Not Finalized</small></span>
     {%endif%}
 
+{% endif %}
 
 {% endblock content %}
 
