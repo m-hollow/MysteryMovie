@@ -695,6 +695,19 @@ class ConcludeRoundView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # grab all the movies in the round
         round_movies = self.object.movies_from_round.all()   # verify if this actually gets used anywhere!
 
+        # sanity-check all users have voted correctly before proceeding.
+        participant_validity = {}
+        for participant in round_participants:
+            participant_validity[participant] = 0
+            participant_umds = [movie.usermoviedetail_set.get(user=participant) for movie in round_movies]
+            for umd in participant_umds:
+                if umd.user_guess is None and umd.is_user_movie == 1:
+                    participant_validity[participant] = 1
+        for participant in participant_validity.keys():
+            if participant_validity[participant] == 0:
+                context["fatal_error"] = "Invalid voting results, please tell <strong>{0}</strong> to review their movie selection and take responsibility for their crimes.".format(participant)
+                return context
+
         # build a primary data structure for storing the rounds point results by participant, calculated by calling the calc methods:
         point_queue = {}
 
