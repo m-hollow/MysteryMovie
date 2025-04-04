@@ -732,7 +732,7 @@
       <div id="excrown-{{ film.id }}" style="position: absolute; margin-left: 90px; margin-top: -35px; font-size: 40px; display: {%if film.id == winner_film_id and state == "COMPLETE" %}block{%else%}none{%endif%}"><img src="/static/img/crown.png" width="40" alt="&#128081;" title="&#128081;" /></div>
       <div title="{{ film.name }} ({{ film.year }})" style="display: table-cell; vertical-align: bottom; height: 256px; text-align: center; width: 10.7em; margin-bottom: 0">
       </div>
-      <img alt="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" title="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" id="picker-{{ film.id }}" src="/static/img/{% if current_index < film.idx %}the-question.png{%else%}user/{{film.chosen_by_id}}{%endif%}" 
+      <img alt="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" title="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" id="picker-{{ film.id }}" src="/media/{% if current_index < film.idx %}the-question.png{%else%}user/{{film.chosen_by_id}}{%endif%}"
            style="position: relative; {%if film.id == winner_film_id and state == "COMPLETE" %}right: -25px;{%else%}right: -50px;{%endif%} top: -256px; border: {%if film.id == winner_film_id and state == "COMPLETE" %}3px solid #fb0{%else%}1px solid black{%endif%}; width: {%if film.id == winner_film_id and state == "COMPLETE" %}100px;{%else%}50px;{%endif%} margin-top: 10px;" xonclick="RevealFilm($('#picker-{{ film.id }}'), {{ film.id }}, {{ film.stars_width }}, {{ film.chosen_by_id }})" />
   </div>
   </div>
