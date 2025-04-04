@@ -51,7 +51,10 @@
 
     <div class="mb-2">
       {% if user.is_authenticated %}
-        <a class="btn-mmg float-right" href="{% url 'logout' %}" role="button">logout&nbsp;<small>{{ user.username }}</small></a>
+        <a class="btn-mmg float-right" href="{% url 'logout' %}" role="button">logout</a>
+        <div style="float: right">&nbsp; | &nbsp;</div>
+        <a class="btn-mmg float-right" href="{% url 'movies:user_profile' pk=request.user.id %}" role="button">profile</a>
+        <div style="float: right"><strong>{{ user.username }}:</strong>&nbsp;</div>
 
         {% if user.userprofile.is_mmg_admin %}
           <a class="btn-mmg float-left" href="{% url 'movies:settings' %}" role="button"><small>Admin Panel</small></a>
