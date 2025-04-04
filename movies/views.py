@@ -649,6 +649,14 @@ class UserProfileView(LoginRequiredMixin, UpdateView):
         all_max = p_summed
 
         context['guess_points'] = guess_points
+        
+        # backward compat for old static imgs
+        for user_movie in user_movies:
+            # (Fallback path to static movies)
+            setattr(user_movie, 'media_path', '/static/img/movie/')
+            if os.path.isfile(os.path.join(settings.MEDIA_ROOT, "movie", "{0}.jpg".format(user_movie.id))):
+                setattr(user_movie, 'media_path', '/media/movie/')
+        
         context['user_movies'] = user_movies
 
         context['max_rounds'] = round_count
