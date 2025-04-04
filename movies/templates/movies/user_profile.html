@@ -74,7 +74,8 @@ function showIcons()
 </div>
 <div id="movie-icons-content" style="display: block">
 {% for movie in user_movies %}
-  <a href="/resultsparty/{{movie.game_round.round_number}}"><img style="margin-right: 6px; margin-left: 6px; margin-bottom: 12px;" src="/static/img/movie/{{ movie.id }}.jpg" width="170" height="256" alt="{{movie.name}}" title="{{movie.name}}" /></a>
+  <a href="/resultsparty/{{movie.game_round.round_number}}"><img style="margin-right: 6px; margin-left: 6px; margin-bottom: 12px;"
+  src="{{ movie.media_path }}/{{ movie.id }}.jpg" width="170" height="256" alt="{{movie.name}}" title="{{movie.name}}" /></a>
 {% endfor %}
 </div>
 
