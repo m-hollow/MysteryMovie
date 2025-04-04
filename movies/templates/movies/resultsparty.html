@@ -503,7 +503,7 @@
         obj.animate({height: 150, width: 150, right: 0}, 15, 'linear');
         obj.animate({height: 150, width: 2}, 1500, 'easeInOutSine');
         obj.promise().done(function() { 
-            obj.attr('src', '/static/img/user/' + chosen_by_id + '.webp');
+            obj.attr('src', '/media/user/' + chosen_by_id + '');
             obj.attr('alt', users[chosen_by_id]);
             obj.attr('title', users[chosen_by_id]);
             obj.animate({height: 150, width: 2}, 500, 'easeInOutSine');
@@ -623,7 +623,7 @@
 <tr>
   <td></td>
   {% for user in users %}
-  <td><div style="border: 1px solid black; display: inline-block;"><img id="av-{{ user.user_id }}" src="/static/img/user/{{ user.user_id }}.webp" alt="{{ user.username }}" title="{{ user.username }}" width="45" style="{% if state != "COMPLETE" %}filter: grayscale(1); opacity: 0.3{%endif%}" /></div>
+  <td><div style="border: 1px solid black; display: inline-block;"><img id="av-{{ user.user_id }}" src="/media/user/{{ user.user_id }}" alt="{{ user.username }}" title="{{ user.username }}" width="45" style="{% if state != "COMPLETE" %}filter: grayscale(1); opacity: 0.3{%endif%}" /></div>
   {% endfor %}
 </tr>
 <tr>
@@ -705,7 +705,7 @@
   {% for user in users %}
   <div id="leaderboard-{{ user.user_id }}" class="leaderboard" style="display: none">
     <div id="leaderboard-{{ user.user_id }}-pos" class="leaderboard-pos">1st</div>
-    <div class="leaderboard-pos-player"> <img src="/static/img/user/{{ user.user_id }}.webp" style="border: 1px solid black" width="28" height="28" alt="{{ user.username }}" title="{{ user.username }}" /> {{ user.username }}</div>
+    <div class="leaderboard-pos-player"> <img src="/media/user/{{ user.user_id }}" style="border: 1px solid black" width="28" height="28" alt="{{ user.username }}" title="{{ user.username }}" /> {{ user.username }}</div>
     <div id="leaderboard-{{ user.user_id }}-pos-points" class="leaderboard-pos-points"> x0 pts</div>
     <div id="leaderboard-{{ user.user_id }}-pos-moviescore" class="leaderboard-pos-moviescore"> - </div>
     <div class="leaderboard-pos-stars">
@@ -732,7 +732,7 @@
       <div id="excrown-{{ film.id }}" style="position: absolute; margin-left: 90px; margin-top: -35px; font-size: 40px; display: {%if film.id == winner_film_id and state == "COMPLETE" %}block{%else%}none{%endif%}"><img src="/static/img/crown.png" width="40" alt="&#128081;" title="&#128081;" /></div>
       <div title="{{ film.name }} ({{ film.year }})" style="display: table-cell; vertical-align: bottom; height: 256px; text-align: center; width: 10.7em; margin-bottom: 0">
       </div>
-      <img alt="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" title="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" id="picker-{{ film.id }}" src="/static/img/{% if current_index < film.idx %}the-question.png{%else%}user/{{film.chosen_by_id}}.webp{%endif%}" 
+      <img alt="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" title="{% if current_index < film.idx %}?{%else%}{{ film.chosen_by_name }}{%endif%}" id="picker-{{ film.id }}" src="/static/img/{% if current_index < film.idx %}the-question.png{%else%}user/{{film.chosen_by_id}}{%endif%}" 
            style="position: relative; {%if film.id == winner_film_id and state == "COMPLETE" %}right: -25px;{%else%}right: -50px;{%endif%} top: -256px; border: {%if film.id == winner_film_id and state == "COMPLETE" %}3px solid #fb0{%else%}1px solid black{%endif%}; width: {%if film.id == winner_film_id and state == "COMPLETE" %}100px;{%else%}50px;{%endif%} margin-top: 10px;" xonclick="RevealFilm($('#picker-{{ film.id }}'), {{ film.id }}, {{ film.stars_width }}, {{ film.chosen_by_id }})" />
   </div>
   </div>
@@ -762,11 +762,11 @@
           {% for guess in guesses %}
             <tr id="details-{{ movie_id }}-{{ guess.user_id }}" style="display: none" >
             {% if guess.user_guess_id %}
-              <td style="text-align: left"><img src="/static/img/user/{{ guess.user_id }}.webp" width="24" /> {{ guess.username }} </td>
+              <td style="text-align: left"><img src="/media/user/{{ guess.user_id }}" width="24" /> {{ guess.username }} </td>
               <td> {%if guess.was_right %} &#10145;&#65039; {%else%} &#10060; {%endif%} </td>
-              <td> <img src="/static/img/user/{{ guess.user_guess_id }}.webp" width="24" /> {{ guess.guessed_username }} </td>
+              <td> <img src="/media/user/{{ guess.user_guess_id }}" width="24" /> {{ guess.guessed_username }} </td>
             {% else %}
-              <td style="text-align: left"><img src="/static/img/user/{{ guess.user_id }}.webp" width="24" /> {{ guess.username }} </td>
+              <td style="text-align: left"><img src="/media/user/{{ guess.user_id }}" width="24" /> {{ guess.username }} </td>
               <td style="text-align: center">-</td>
               <td style="text-align: center">-</td>
             {% endif %}

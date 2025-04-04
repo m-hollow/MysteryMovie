@@ -10,6 +10,7 @@ from django.http import Http404, JsonResponse
 from django.db.models import F, Max, Min, Avg, Count, Q
 from datetime import date, datetime, timedelta
 from django.conf import settings
+import time
 
 from .models import (Movie, GameRound, Trophy, UserProfile, UserMovieDetail, UserRoundDetail, TrophyProfileDetail, RoundRank, PointsEarned, PartyState, PartyGoers)
 from .forms import AddMovieForm, UserMovieDetailForm
@@ -606,7 +607,10 @@ class UserResultsView(LoginRequiredMixin, DetailView):
         return context
 
 
-class UserProfileView(LoginRequiredMixin, DetailView):
+class UserProfileView(LoginRequiredMixin, UpdateView):
+    # this has to be defined, because this is an UpdateView
+    fields = []
+
     def dispatch(self, request, *args, **kwargs):
         if ShallWeParty(kwargs, 'users'):
             return redirect('/resultsparty/')
@@ -619,7 +623,6 @@ class UserProfileView(LoginRequiredMixin, DetailView):
     context_object_name = 'user_profile'
 
     login_url = 'login'
-
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -651,8 +654,28 @@ class UserProfileView(LoginRequiredMixin, DetailView):
         context['max_rounds'] = round_count
         context['max_guess'] = guess_max
         context['max_rest'] = all_max
+        
+        context['is_mmg_admin'] = self.request.user.userprofile.is_mmg_admin
+        context['now'] = int(time.time())
 
         return context
+
+    def form_valid(self, form):
+        if not os.path.isdir(settings.MEDIA_ROOT):
+            os.makedirs(settings.MEDIA_ROOT)
+        user_img_path = os.path.join(settings.MEDIA_ROOT, "user")
+        if not os.path.isdir(user_img_path):
+            os.makedirs(user_img_path)
+        outfile = os.path.join(user_img_path, str(int(self.request.POST['user_id'])))
+        file = open(outfile, "wb")
+        print("Writing out {0}".format(outfile))
+        for chunk in self.request.FILES['profile_pic_file'].chunks():
+            file.write(chunk)
+        file.close()
+        
+        self.success_url = '/user_profile/' + str(int(self.request.POST['user_id'])) + '/'
+
+        return super().form_valid(form)
 
 
 # using UpdateView, but it's not, really; nothing gets updated in db until the Commit views are called.

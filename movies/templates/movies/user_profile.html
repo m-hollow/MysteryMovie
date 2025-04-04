@@ -3,10 +3,43 @@
 
 {% block title %}
 <title>User Profile</title>
+<script type="text/javascript">
+function showList()
+{
+  $('#movie-list').css('font-weight', 'bold');
+  $('#movie-icons').css('font-weight', 'normal');
+  $('#movie-list-content').css('display', 'block');
+  $('#movie-icons-content').css('display', 'none');
+}
+
+function showIcons()
+{
+  $('#movie-list').css('font-weight', 'normal');
+  $('#movie-icons').css('font-weight', 'bold');
+  $('#movie-list-content').css('display', 'none');
+  $('#movie-icons-content').css('display', 'block');
+}
+</script>
 {% endblock title %}
 
 {% block page_header %}
+<div style="float: right; text-align: right">
+  <img src="/media/user/{{ user_profile.user_id }}?t={{ now }}" width="90" />
+  <br />
+  {% if user_profile.user_id == user.id or is_mmg_admin == True %}
+  <div>
+  <form method="post" action="" class="form" enctype="multipart/form-data">
+  {% csrf_token %}
+    <input type="hidden" name="user_id" value="{{ user_profile.user_id }}" />
+    <input id="profile_pic_file" type="file" name="profile_pic_file" style="border: 1px solid white; display: none" onchange="$('#profile_pic_submit').css('display', 'block'); $('#profile_pic_file').css('display', 'none')" />
+    <label for="profile_pic_file"><strong style="font-size: 12px; cursor: pointer">[Change Icon]</strong></label>
+    <input id="profile_pic_submit" type="submit" name="action" style="border: 1px solid white; width: 100px; display: none; font-size: 12px; margin-bottom: 2px;" value="Upload" />
+  </form>
+  </div>
+  {% endif %}
+</div>
 <h2>{{ user_profile.user.username }}&lsquo;s Profile</h2>
+<div style="clear:both"></div>
 {% endblock page_header %}
 
 {% block content %}
@@ -14,19 +47,23 @@
 <!-- <p>Date Joined: {{ user_profile.user.date_joined|date:'M Y' }}</p> -->
 
 <ul class="pl-0" style="list-style-type:none">
-  <li>Total Rounds Won<span class="float-right">{{ user_profile.rounds_won }}<small>&nbsp;&nbsp;&nbsp;&nbsp;<i>of</i>  &nbsp;&nbsp;{{ max_rounds }}</small></span></li>
-  <li>Total Correct Guesses<span class="float-right">{{ guess_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_guess }}</small></span></li>
+  <li>&#128081; Total Rounds Won<span class="float-right">{{ user_profile.rounds_won }}<small>&nbsp;&nbsp;&nbsp;&nbsp;<i>of</i>  &nbsp;&nbsp;{{ max_rounds }}</small></span></li>
+  <li>&#129300; Total Correct Guesses<span class="float-right">{{ guess_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_guess }}</small></span></li>
   <br>
-  <li>Liked Movie Points<span class="float-right">{{ user_profile.total_liked_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
-  <li>Loathed Movie Points<span class="float-right">{{ user_profile.total_disliked_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
-  <li>Unseen Movie Points<span class="float-right">{{ user_profile.total_unseen_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
-  <li>Heard Of Movie Points<span class="float-right">{{ user_profile.total_known_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
+  <li>&#129505; Liked Movie Points<span class="float-right">{{ user_profile.total_liked_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
+  <li>&#128529; Loathed Movie Points<span class="float-right">{{ user_profile.total_disliked_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
+  <li>&#127381; Unseen Movie Points<span class="float-right">{{ user_profile.total_unseen_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
+  <li>&#128161; Heard Of Movie Points<span class="float-right">{{ user_profile.total_known_movie_points }}<small>&nbsp;&nbsp;&nbsp;<i>of</i> &nbsp;{{ max_rest }}</small></span></li>
 </ul>
 
 <br>
 
+<div style="float: right"><a href="#list" id="movie-list" onclick="showList()">list</a> | <a style="font-weight: bold" id="movie-icons" href="#icons" onclick="showIcons()">icons</a></div>
 <h4 class="border-bottom pb-2 mb-4">{{ user_profile.user.username }}&lsquo;s Movies</h4>
+<div style="clear: both"></div>
+
 <!-- <h5 class="border-bottom pb-2 mb-4"><small>Round</small><span class="float-right"><small>Movie</small></span></h5> -->
+<div id="movie-list-content" style="display: none">
 <ul class="pl-0" style="list-style-type:none">
 {% for movie in user_movies %}
   <li><a href="{{ movie.game_round.get_absolute_url }}">Round {{ movie.game_round.round_number }}</a>
@@ -34,7 +71,12 @@
   </li>
 {% endfor %}
 </ul>
-
+</div>
+<div id="movie-icons-content" style="display: block">
+{% for movie in user_movies %}
+  <a href="/resultsparty/{{movie.game_round.round_number}}"><img style="margin-right: 6px; margin-left: 6px; margin-bottom: 12px;" src="/static/img/movie/{{ movie.id }}.jpg" width="170" height="256" alt="{{movie.name}}" title="{{movie.name}}" /></a>
+{% endfor %}
+</div>
 
 
 <br>
