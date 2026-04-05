@@ -57,6 +57,11 @@ Technical improvements and refactoring opportunities that aren't bugs but would 
 
 ## Developer Experience
 
+### IMP-13: Dockerized Development Environment
+- **Issue**: Setting up the dev environment requires manually installing Python 3, MySQL, libmysqlclient, creating a database/user, configuring `.env`, running migrations, and seeding data. Devs have reported this friction as a barrier to contribution — system library mismatches and misconfigured environments cause setup failures.
+- **Benefit**: `docker compose up` gives a fully working environment mirroring the PythonAnywhere production stack (Python 3, MySQL 8.0) with no global installs beyond Docker. Scoped to development only — production remains on PythonAnywhere which does not support containers.
+- **Plan**: [docs/plans/improvements/imp-13-dockerize-dev-environment.md](docs/plans/improvements/imp-13-dockerize-dev-environment.md)
+
 ### IMP-09: Add CI/CD Pipeline
 - **Issue**: No automated testing, linting, or deployment. All manual processes.
 - **Benefit**: Automated quality checks on PRs, faster feedback, safer deployments.
@@ -68,6 +73,12 @@ Technical improvements and refactoring opportunities that aren't bugs but would 
 - **Plan**: [docs/plans/improvements/imp-10-upgrade-django.md](docs/plans/improvements/imp-10-upgrade-django.md)
 
 ## Data Integrity
+
+### IMP-14: Migrate from MySQL to PostgreSQL
+- **Issue**: MySQL requires installing `libmysqlclient` — a system-level C library that is a frequent source of setup failures, especially on macOS. The project uses no raw SQL or MySQL-specific features; all queries go through the Django ORM.
+- **Benefit**: `psycopg2-binary` installs with no system dependencies. PostgreSQL is Django's best-supported backend with exclusive features (ArrayField, full-text search, ExclusionConstraint). PythonAnywhere supports PostgreSQL on paid plans. Also simplifies IMP-13 (Docker dev) since the dev Dockerfile no longer needs `libmysqlclient-dev`.
+- **Dependencies**: Best done after IMP-10 (Django upgrade) and IMP-04 (test suite) for safer migration.
+- **Plan**: [docs/plans/improvements/imp-14-migrate-to-postgresql.md](docs/plans/improvements/imp-14-migrate-to-postgresql.md)
 
 ### IMP-11: Add Database Constraints for Business Rules
 - **Issue**: Business rules (one active round, one chooser per movie, valid point ranges) are only enforced in application code, not at the database level.
@@ -85,6 +96,6 @@ Technical improvements and refactoring opportunities that aren't bugs but would 
 
 | Priority | Items | Rationale |
 |----------|-------|-----------|
-| **High** | IMP-04 (tests), IMP-10 (Django upgrade), IMP-08 (security) | Safety and security fundamentals |
-| **Medium** | IMP-01 (split views), IMP-02 (service layer), IMP-05 (queries), IMP-07 (logging) | Maintainability and performance |
+| **High** | IMP-13 (Docker dev), IMP-04 (tests), IMP-10 (Django upgrade), IMP-08 (security) | Dev onboarding friction, safety, and security fundamentals |
+| **Medium** | IMP-14 (PostgreSQL), IMP-01 (split views), IMP-02 (service layer), IMP-05 (queries), IMP-07 (logging) | Dev friction, maintainability, and performance |
 | **Lower** | IMP-03 (session state), IMP-06 (annotations), IMP-09 (CI/CD), IMP-11 (constraints), IMP-12 (cleanup) | Quality of life improvements |
