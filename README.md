@@ -185,12 +185,12 @@ The game admin (users with `UserProfile.is_mmg_admin = True`) manages rounds thr
 
 ## Contributing
 
-The project uses a PR-based workflow with feature branches merged into `main`. See [HISTORY.md](HISTORY.md) for the full development timeline.
+The project uses a PR-based workflow with feature branches merged into `main`. See [HISTORY.md](docs/HISTORY.md) for the full development timeline.
 
 ## Related Documentation
 
-- [HISTORY.md](HISTORY.md) — Full project history and timeline
-- [BUGS.md](BUGS.md) — Known bugs listed by severity
-- [FUTURE_IMPROVEMENTS.md](FUTURE_IMPROVEMENTS.md) — Technical improvements and refactoring ideas
-- [FEATURE_IDEAS.md](FEATURE_IDEAS.md) — Ideas for new features
+- [HISTORY.md](docs/HISTORY.md) — Full project history and timeline
+- [BUGS.md](docs/BUGS.md) — Known bugs listed by severity
+- [FUTURE_IMPROVEMENTS.md](docs/FUTURE_IMPROVEMENTS.md) — Technical improvements and refactoring ideas
+- [FEATURE_IDEAS.md](docs/FEATURE_IDEAS.md) — Ideas for new features
 - [docs/plans/](docs/plans/) — Detailed plan files for bugs, improvements, and features
