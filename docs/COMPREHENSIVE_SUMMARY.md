@@ -152,12 +152,13 @@ MysteryMovie/
 
 ## Improvement Summary
 
-**12 technical improvements** identified. See [FUTURE_IMPROVEMENTS.md](FUTURE_IMPROVEMENTS.md) for full details.
+**14 technical improvements** identified. See [FUTURE_IMPROVEMENTS.md](FUTURE_IMPROVEMENTS.md) for full details.
 
 ### High Priority
 
 | ID | Improvement | Rationale |
 |----|-------------|-----------|
+| IMP-13 | Dockerized dev environment | Eliminates manual setup friction reported by devs |
 | IMP-04 | Add test suite (zero coverage currently) | Foundation for safe changes |
 | IMP-10 | Upgrade Django 3.1 → 5.2 LTS | Security patches, EOL since 2022 |
 | IMP-08 | Security middleware configuration | HTTPS, secure cookies, HSTS |
@@ -166,6 +167,7 @@ MysteryMovie/
 
 | ID | Improvement | Rationale |
 |----|-------------|-----------|
+| IMP-14 | Migrate from MySQL to PostgreSQL | Eliminates libmysqlclient dep, Django's best-supported backend |
 | IMP-01 | Split 2000-line views.py into modules | Maintainability |
 | IMP-02 | Extract point calculation to service layer | Testability, reusability |
 | IMP-05 | Add select_related/prefetch_related everywhere | Performance |
@@ -248,10 +250,11 @@ Address the 4 critical and 5 high-severity bugs. These affect data integrity and
 
 Establish the foundations for safe ongoing development.
 
-1. **IMP-10** — Upgrade Django to a supported LTS version
-2. **IMP-08** — Add security headers to production
-3. **IMP-04** — Write initial test suite (focus on scoring logic)
-4. **BUG-15** — Production security headers
+1. **IMP-13** — Dockerize the dev environment (`docker compose up` replaces manual setup)
+2. **IMP-10** — Upgrade Django to a supported LTS version
+3. **IMP-08** — Add security headers to production
+4. **IMP-04** — Write initial test suite (focus on scoring logic)
+5. **BUG-15** — Production security headers
 
 ### Phase 3: Refactor (Code Quality)
 
@@ -261,7 +264,8 @@ Make the codebase maintainable for continued development.
 2. **IMP-02** — Extract scoring into service layer
 3. **IMP-07** — Implement proper logging
 4. **IMP-05** — Optimize database queries
-5. **BUG-18** — Remove print statements (part of IMP-07)
+5. **IMP-14** — Migrate from MySQL to PostgreSQL (after Django upgrade and test suite)
+6. **BUG-18** — Remove print statements (part of IMP-07)
 
 ### Phase 4: Enhance (Features)
 
@@ -277,14 +281,22 @@ Build on the stable, tested, maintainable codebase.
 
 ## Document Index
 
-### Root Documents
+### Project Root
 
 | File | Description |
 |------|-------------|
-| [README.md](README.md) | Project overview, setup guide, URL reference |
+| [README.md](../README.md) | Project overview, admin workflow, URL reference |
+| [CLAUDE.md](../CLAUDE.md) | Claude Code onboarding — dev commands, architecture, key patterns |
+| [scripts/server_setup.sh](../scripts/server_setup.sh) | Automated dev environment setup script |
+
+### docs/
+
+| File | Description |
+|------|-------------|
+| [SERVER_SETUP.md](SERVER_SETUP.md) | Full setup instructions (requirements, MySQL, .env, migrations, seed data) |
 | [HISTORY.md](HISTORY.md) | Full development timeline (Oct 2020 – Apr 2025) |
 | [BUGS.md](BUGS.md) | 21 bugs by severity with file locations |
-| [FUTURE_IMPROVEMENTS.md](FUTURE_IMPROVEMENTS.md) | 12 technical improvements with priority matrix |
+| [FUTURE_IMPROVEMENTS.md](FUTURE_IMPROVEMENTS.md) | 14 technical improvements with priority matrix |
 | [FEATURE_IDEAS.md](FEATURE_IDEAS.md) | 16 feature ideas with priority suggestions |
 | [COMPREHENSIVE_SUMMARY.md](COMPREHENSIVE_SUMMARY.md) | This document |
 
@@ -292,65 +304,67 @@ Build on the stable, tested, maintainable codebase.
 
 | File | Bug |
 |------|-----|
-| [bug-01-commit-user-round-unreachable-code.md](docs/plans/bugs/bug-01-commit-user-round-unreachable-code.md) | Critical: Unreachable code in form_valid |
-| [bug-02-unsafe-profile-pic-upload.md](docs/plans/bugs/bug-02-unsafe-profile-pic-upload.md) | Critical: No upload validation |
-| [bug-03-unsafe-movie-image-upload.md](docs/plans/bugs/bug-03-unsafe-movie-image-upload.md) | Critical: No upload validation |
-| [bug-04-bare-except-clauses.md](docs/plans/bugs/bug-04-bare-except-clauses.md) | Critical: Exceptions swallowed |
-| [bug-05-foreignkey-default-mismatch.md](docs/plans/bugs/bug-05-foreignkey-default-mismatch.md) | High: Invalid FK default |
-| [bug-06-unsafe-username-icontains.md](docs/plans/bugs/bug-06-unsafe-username-icontains.md) | High: Wrong user match |
-| [bug-07-undefined-idx-partystate.md](docs/plans/bugs/bug-07-undefined-idx-partystate.md) | High: NameError crash |
-| [bug-08-keyerror-chosen-by-none.md](docs/plans/bugs/bug-08-keyerror-chosen-by-none.md) | High: KeyError crash |
-| [bug-09-stale-date-defaults.md](docs/plans/bugs/bug-09-stale-date-defaults.md) | High: Wrong default dates |
-| [bug-10-multiple-active-rounds.md](docs/plans/bugs/bug-10-multiple-active-rounds.md) | Medium: No unique constraint |
-| [bug-11-missing-csrf-ajax.md](docs/plans/bugs/bug-11-missing-csrf-ajax.md) | Medium: CSRF vulnerability |
-| [bug-12-missing-self-parameter.md](docs/plans/bugs/bug-12-missing-self-parameter.md) | Medium: Fragile view binding |
-| [bug-13-hardcoded-success-url.md](docs/plans/bugs/bug-13-hardcoded-success-url.md) | Medium: Wrong redirect |
-| [bug-14-n-plus-1-results-party.md](docs/plans/bugs/bug-14-n-plus-1-results-party.md) | Medium: N+1 queries |
-| [bug-15-missing-security-headers.md](docs/plans/bugs/bug-15-missing-security-headers.md) | Medium: No HTTPS enforcement |
-| [bug-16-index-out-of-bounds-party.md](docs/plans/bugs/bug-16-index-out-of-bounds-party.md) | Medium: IndexError |
-| [bug-17-manage-py-settings.md](docs/plans/bugs/bug-17-manage-py-settings.md) | Medium: Ambiguous settings |
-| [bug-18-print-statements.md](docs/plans/bugs/bug-18-print-statements.md) | Low: No logging |
-| [bug-19-python-sorting.md](docs/plans/bugs/bug-19-python-sorting.md) | Low: Slow sorting |
-| [bug-20-multiple-movie-choosers.md](docs/plans/bugs/bug-20-multiple-movie-choosers.md) | Low: Missing constraint |
-| [bug-21-commented-out-code.md](docs/plans/bugs/bug-21-commented-out-code.md) | Low: Dead code |
+| [bug-01-commit-user-round-unreachable-code.md](plans/bugs/bug-01-commit-user-round-unreachable-code.md) | Critical: Unreachable code in form_valid |
+| [bug-02-unsafe-profile-pic-upload.md](plans/bugs/bug-02-unsafe-profile-pic-upload.md) | Critical: No upload validation |
+| [bug-03-unsafe-movie-image-upload.md](plans/bugs/bug-03-unsafe-movie-image-upload.md) | Critical: No upload validation |
+| [bug-04-bare-except-clauses.md](plans/bugs/bug-04-bare-except-clauses.md) | Critical: Exceptions swallowed |
+| [bug-05-foreignkey-default-mismatch.md](plans/bugs/bug-05-foreignkey-default-mismatch.md) | High: Invalid FK default |
+| [bug-06-unsafe-username-icontains.md](plans/bugs/bug-06-unsafe-username-icontains.md) | High: Wrong user match |
+| [bug-07-undefined-idx-partystate.md](plans/bugs/bug-07-undefined-idx-partystate.md) | High: NameError crash |
+| [bug-08-keyerror-chosen-by-none.md](plans/bugs/bug-08-keyerror-chosen-by-none.md) | High: KeyError crash |
+| [bug-09-stale-date-defaults.md](plans/bugs/bug-09-stale-date-defaults.md) | High: Wrong default dates |
+| [bug-10-multiple-active-rounds.md](plans/bugs/bug-10-multiple-active-rounds.md) | Medium: No unique constraint |
+| [bug-11-missing-csrf-ajax.md](plans/bugs/bug-11-missing-csrf-ajax.md) | Medium: CSRF vulnerability |
+| [bug-12-missing-self-parameter.md](plans/bugs/bug-12-missing-self-parameter.md) | Medium: Fragile view binding |
+| [bug-13-hardcoded-success-url.md](plans/bugs/bug-13-hardcoded-success-url.md) | Medium: Wrong redirect |
+| [bug-14-n-plus-1-results-party.md](plans/bugs/bug-14-n-plus-1-results-party.md) | Medium: N+1 queries |
+| [bug-15-missing-security-headers.md](plans/bugs/bug-15-missing-security-headers.md) | Medium: No HTTPS enforcement |
+| [bug-16-index-out-of-bounds-party.md](plans/bugs/bug-16-index-out-of-bounds-party.md) | Medium: IndexError |
+| [bug-17-manage-py-settings.md](plans/bugs/bug-17-manage-py-settings.md) | Medium: Ambiguous settings |
+| [bug-18-print-statements.md](plans/bugs/bug-18-print-statements.md) | Low: No logging |
+| [bug-19-python-sorting.md](plans/bugs/bug-19-python-sorting.md) | Low: Slow sorting |
+| [bug-20-multiple-movie-choosers.md](plans/bugs/bug-20-multiple-movie-choosers.md) | Low: Missing constraint |
+| [bug-21-commented-out-code.md](plans/bugs/bug-21-commented-out-code.md) | Low: Dead code |
 
-### Improvement Plans (12 files in `docs/plans/improvements/`)
+### Improvement Plans (14 files in `docs/plans/improvements/`)
 
 | File | Improvement |
 |------|-------------|
-| [imp-01-split-views.md](docs/plans/improvements/imp-01-split-views.md) | Split monolithic views.py |
-| [imp-02-extract-point-calculation.md](docs/plans/improvements/imp-02-extract-point-calculation.md) | Scoring service layer |
-| [imp-03-replace-session-state.md](docs/plans/improvements/imp-03-replace-session-state.md) | DB transactions over sessions |
-| [imp-04-add-test-suite.md](docs/plans/improvements/imp-04-add-test-suite.md) | Test coverage from zero |
-| [imp-05-optimize-queries.md](docs/plans/improvements/imp-05-optimize-queries.md) | select_related everywhere |
-| [imp-06-database-annotations.md](docs/plans/improvements/imp-06-database-annotations.md) | Replace property aggregations |
-| [imp-07-implement-logging.md](docs/plans/improvements/imp-07-implement-logging.md) | Django logging framework |
-| [imp-08-security-hardening.md](docs/plans/improvements/imp-08-security-hardening.md) | Production security headers |
-| [imp-09-add-ci-cd.md](docs/plans/improvements/imp-09-add-ci-cd.md) | GitHub Actions pipeline |
-| [imp-10-upgrade-django.md](docs/plans/improvements/imp-10-upgrade-django.md) | Django 3.1 → 5.2 LTS |
-| [imp-11-database-constraints.md](docs/plans/improvements/imp-11-database-constraints.md) | Business rule constraints |
-| [imp-12-cleanup-dead-code.md](docs/plans/improvements/imp-12-cleanup-dead-code.md) | Remove unused code |
+| [imp-01-split-views.md](plans/improvements/imp-01-split-views.md) | Split monolithic views.py |
+| [imp-02-extract-point-calculation.md](plans/improvements/imp-02-extract-point-calculation.md) | Scoring service layer |
+| [imp-03-replace-session-state.md](plans/improvements/imp-03-replace-session-state.md) | DB transactions over sessions |
+| [imp-04-add-test-suite.md](plans/improvements/imp-04-add-test-suite.md) | Test coverage from zero |
+| [imp-05-optimize-queries.md](plans/improvements/imp-05-optimize-queries.md) | select_related everywhere |
+| [imp-06-database-annotations.md](plans/improvements/imp-06-database-annotations.md) | Replace property aggregations |
+| [imp-07-implement-logging.md](plans/improvements/imp-07-implement-logging.md) | Django logging framework |
+| [imp-08-security-hardening.md](plans/improvements/imp-08-security-hardening.md) | Production security headers |
+| [imp-09-add-ci-cd.md](plans/improvements/imp-09-add-ci-cd.md) | GitHub Actions pipeline |
+| [imp-10-upgrade-django.md](plans/improvements/imp-10-upgrade-django.md) | Django 3.1 → 5.2 LTS |
+| [imp-11-database-constraints.md](plans/improvements/imp-11-database-constraints.md) | Business rule constraints |
+| [imp-12-cleanup-dead-code.md](plans/improvements/imp-12-cleanup-dead-code.md) | Remove unused code |
+| [imp-13-dockerize-dev-environment.md](plans/improvements/imp-13-dockerize-dev-environment.md) | Dockerized dev environment |
+| [imp-14-migrate-to-postgresql.md](plans/improvements/imp-14-migrate-to-postgresql.md) | Migrate from MySQL to PostgreSQL |
 
 ### Feature Plans (16 files in `docs/plans/features/`)
 
 | File | Feature |
 |------|---------|
-| [feat-01-movie-database-integration.md](docs/plans/features/feat-01-movie-database-integration.md) | OMDB API auto-populate |
-| [feat-02-streaming-availability.md](docs/plans/features/feat-02-streaming-availability.md) | Where to watch links |
-| [feat-03-advanced-statistics.md](docs/plans/features/feat-03-advanced-statistics.md) | Per-user analytics dashboard |
-| [feat-04-round-analytics.md](docs/plans/features/feat-04-round-analytics.md) | Guess heatmaps, controversy |
-| [feat-05-historical-greatest-hits.md](docs/plans/features/feat-05-historical-greatest-hits.md) | All-time leaderboards |
-| [feat-06-achievement-badges.md](docs/plans/features/feat-06-achievement-badges.md) | Persistent achievement system |
-| [feat-07-custom-scoring.md](docs/plans/features/feat-07-custom-scoring.md) | Configurable point values |
-| [feat-08-notifications.md](docs/plans/features/feat-08-notifications.md) | Email alerts for game events |
-| [feat-09-comments-discussion.md](docs/plans/features/feat-09-comments-discussion.md) | Post-round discussion threads |
-| [feat-10-mobile-optimization.md](docs/plans/features/feat-10-mobile-optimization.md) | Responsive mobile redesign |
-| [feat-11-dark-mode.md](docs/plans/features/feat-11-dark-mode.md) | Dark/light theme toggle |
-| [feat-12-poster-card-layout.md](docs/plans/features/feat-12-poster-card-layout.md) | Visual movie card grid |
-| [feat-13-game-variants.md](docs/plans/features/feat-13-game-variants.md) | Blind, theme, team modes |
-| [feat-14-yearly-recap.md](docs/plans/features/feat-14-yearly-recap.md) | Year-end summary & awards |
-| [feat-15-chat-bot-integration.md](docs/plans/features/feat-15-chat-bot-integration.md) | Slack/Discord bot |
-| [feat-16-rest-api.md](docs/plans/features/feat-16-rest-api.md) | Django REST Framework API |
+| [feat-01-movie-database-integration.md](plans/features/feat-01-movie-database-integration.md) | OMDB API auto-populate |
+| [feat-02-streaming-availability.md](plans/features/feat-02-streaming-availability.md) | Where to watch links |
+| [feat-03-advanced-statistics.md](plans/features/feat-03-advanced-statistics.md) | Per-user analytics dashboard |
+| [feat-04-round-analytics.md](plans/features/feat-04-round-analytics.md) | Guess heatmaps, controversy |
+| [feat-05-historical-greatest-hits.md](plans/features/feat-05-historical-greatest-hits.md) | All-time leaderboards |
+| [feat-06-achievement-badges.md](plans/features/feat-06-achievement-badges.md) | Persistent achievement system |
+| [feat-07-custom-scoring.md](plans/features/feat-07-custom-scoring.md) | Configurable point values |
+| [feat-08-notifications.md](plans/features/feat-08-notifications.md) | Email alerts for game events |
+| [feat-09-comments-discussion.md](plans/features/feat-09-comments-discussion.md) | Post-round discussion threads |
+| [feat-10-mobile-optimization.md](plans/features/feat-10-mobile-optimization.md) | Responsive mobile redesign |
+| [feat-11-dark-mode.md](plans/features/feat-11-dark-mode.md) | Dark/light theme toggle |
+| [feat-12-poster-card-layout.md](plans/features/feat-12-poster-card-layout.md) | Visual movie card grid |
+| [feat-13-game-variants.md](plans/features/feat-13-game-variants.md) | Blind, theme, team modes |
+| [feat-14-yearly-recap.md](plans/features/feat-14-yearly-recap.md) | Year-end summary & awards |
+| [feat-15-chat-bot-integration.md](plans/features/feat-15-chat-bot-integration.md) | Slack/Discord bot |
+| [feat-16-rest-api.md](plans/features/feat-16-rest-api.md) | Django REST Framework API |
 
 ---
 
@@ -359,10 +373,10 @@ Build on the stable, tested, maintainable codebase.
 | Category | Count |
 |----------|-------|
 | Bugs found | 21 |
-| Improvements proposed | 12 |
+| Improvements proposed | 14 |
 | Feature ideas | 16 |
-| Plan files created | 49 |
-| Total documents | 55 |
+| Plan files created | 51 |
+| Total documents | 59 |
 | Project age | 4.5 years |
 | Total commits | ~74 |
 | Contributors | 3 |
