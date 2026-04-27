@@ -118,21 +118,39 @@ class OverviewView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
 
+        movies = Movie.objects.select_related('game_round').prefetch_related('users').all()
+
         if self.kwargs['sort_by'] == "round":
-            queryset = Movie.objects.order_by('game_round__round_number')
+            queryset = movies.order_by('game_round__round_number')
 
         # not actually using this one in sort drop-down
         elif self.kwargs['sort_by'] == "movie":
-            queryset = Movie.objects.order_by('name')
+            queryset = movies.order_by('name')
 
         elif self.kwargs['sort_by'] == "user":
             #queryset = Movie.objects.order_by('-chosen_by__username')
-            queryset = Movie.objects.annotate(avg_rating=Avg('usermoviedetail__star_rating')).order_by('-chosen_by__username', '-avg_rating')
+            queryset = movies.annotate(avg_rating=Avg('usermoviedetail__star_rating')).order_by('-chosen_by__username', '-avg_rating')
 
         elif self.kwargs['sort_by'] == "rating":
-            queryset = sorted(Movie.objects.all(), key=lambda x: x.average_rating, reverse=True)
+            queryset = sorted(movies, key=lambda x: x.average_rating, reverse=True)
 
         return queryset
+
+        # if self.kwargs['sort_by'] == "round":
+        #     queryset = Movie.objects.order_by('game_round__round_number')
+
+        # # not actually using this one in sort drop-down
+        # elif self.kwargs['sort_by'] == "movie":
+        #     queryset = Movie.objects.order_by('name')
+
+        # elif self.kwargs['sort_by'] == "user":
+        #     #queryset = Movie.objects.order_by('-chosen_by__username')
+        #     queryset = Movie.objects.annotate(avg_rating=Avg('usermoviedetail__star_rating')).order_by('-chosen_by__username', '-avg_rating')
+
+        # elif self.kwargs['sort_by'] == "rating":
+        #     queryset = sorted(Movie.objects.all(), key=lambda x: x.average_rating, reverse=True)
+
+        # return queryset
 
 
 
