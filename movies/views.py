@@ -118,7 +118,7 @@ class OverviewView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
 
-        movies = Movie.objects.select_related('game_round', 'chosen_by').prefetch_related('users', 'usermoviedetail').all()
+        movies = Movie.objects.select_related('game_round', 'chosen_by').prefetch_related('users', 'usermoviedetail_set').all()
 
         if self.kwargs['sort_by'] == "round":
             queryset = movies.order_by('game_round__round_number')
